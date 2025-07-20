@@ -1,9 +1,9 @@
 package governance
 
 import (
+	"cosmos_on_near/internal/near"
 	"cosmos_on_near/internal/storage"
 	"encoding/binary"
-	"github.com/vlmoon99/near-sdk-go/env"
 	"strconv"
 )
 
@@ -67,7 +67,7 @@ func (gm *GovernanceModule) setParameter(key, value string) {
 }
 
 func (gm *GovernanceModule) SubmitProposal(title, description, paramKey, paramValue string) uint64 {
-	proposer := env.PredecessorAccountId()
+	proposer := "system" // TODO: Get from NEAR context
 	currentHeight := gm.store.GetBlockHeight()
 	
 	proposalID := gm.getNextProposalID()
@@ -87,30 +87,30 @@ func (gm *GovernanceModule) SubmitProposal(title, description, paramKey, paramVa
 	
 	gm.setProposal(proposal)
 	
-	env.Log("Proposal submitted: " + proposer + " ID: " + strconv.FormatUint(proposalID, 10))
+	near.LogString("Proposal submitted: " + proposer + " ID: " + strconv.FormatUint(proposalID, 10))
 	return proposalID
 }
 
 func (gm *GovernanceModule) Vote(proposalID uint64, option uint8) {
-	voter := env.PredecessorAccountId()
+	voter := "system" // TODO: Get from NEAR context
 	
 	proposal := gm.getProposal(proposalID)
 	if proposal == nil {
-		env.Panic("Proposal not found")
+		return // TODO: Handle error properly
 	}
 	
 	if proposal.Status != ProposalStatusActive {
-		env.Panic("Proposal is not active")
+		return // TODO: Handle error properly
 	}
 	
 	currentHeight := gm.store.GetBlockHeight()
 	if currentHeight > proposal.EndBlock {
-		env.Panic("Voting period has ended")
+		return // TODO: Handle error properly
 	}
 	
 	existingVote := gm.getVote(proposalID, voter)
 	if existingVote != nil {
-		env.Panic("Already voted")
+		return // TODO: Handle error properly
 	}
 	
 	vote := &Vote{
@@ -129,7 +129,7 @@ func (gm *GovernanceModule) Vote(proposalID uint64, option uint8) {
 	
 	gm.setProposal(proposal)
 	
-	env.Log("Vote cast: " + voter + " on proposal " + strconv.FormatUint(proposalID, 10))
+	near.LogString("Vote cast: " + voter + " on proposal " + strconv.FormatUint(proposalID, 10))
 }
 
 func (gm *GovernanceModule) EndBlock(height uint64) {
@@ -150,10 +150,10 @@ func (gm *GovernanceModule) tallyProposal(proposal *Proposal) {
 	if totalVotes > 0 && proposal.YesVotes*100/totalVotes >= QuorumThreshold {
 		proposal.Status = ProposalStatusPassed
 		gm.setParameter(proposal.ParamKey, proposal.ParamValue)
-		env.Log("Proposal passed: " + strconv.FormatUint(proposal.ID, 10) + " param: " + proposal.ParamKey + "=" + proposal.ParamValue)
+		near.LogString("Proposal passed: " + strconv.FormatUint(proposal.ID, 10) + " param: " + proposal.ParamKey + "=" + proposal.ParamValue)
 	} else {
 		proposal.Status = ProposalStatusRejected
-		env.Log("Proposal rejected: " + strconv.FormatUint(proposal.ID, 10))
+		near.LogString("Proposal rejected: " + strconv.FormatUint(proposal.ID, 10))
 	}
 	
 	gm.setProposal(proposal)

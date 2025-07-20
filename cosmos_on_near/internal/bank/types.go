@@ -1,16 +1,17 @@
 package bank
 
 import (
-	"github.com/vlmoon99/near-sdk-go/borsh"
+	"encoding/binary"
 )
 
 type Balance struct {
-	Amount uint64 `borsh:"amount"`
+	Amount uint64 `json:"amount"`
 }
 
 func (b *Balance) Serialize() []byte {
-	data, _ := borsh.BorshSerialize(b)
-	return data
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(buf, b.Amount)
+	return buf
 }
 
 func DeserializeBalance(data []byte) *Balance {
@@ -18,7 +19,10 @@ func DeserializeBalance(data []byte) *Balance {
 		return &Balance{Amount: 0}
 	}
 	
-	var balance Balance
-	borsh.BorshDeserialize(&balance, data)
-	return &balance
+	if len(data) < 8 {
+		return &Balance{Amount: 0}
+	}
+	
+	amount := binary.LittleEndian.Uint64(data[:8])
+	return &Balance{Amount: amount}
 }
