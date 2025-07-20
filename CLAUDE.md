@@ -79,3 +79,9 @@ cosmos_on_near/
 3. Deploy with near-cli
 4. Test contract functions manually
 5. Commit and push to develop branch
+
+## Commit Guidelines
+
+- Use clear, descriptive commit messages
+- Do not include Claude Code attribution or co-authorship
+- Focus on what was implemented, not who implemented it

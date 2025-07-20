@@ -1,0 +1,51 @@
+//go:build m5stamp_c3
+
+package machine
+
+const (
+	IO0  = GPIO0
+	IO1  = GPIO1
+	IO2  = GPIO2
+	IO3  = GPIO3
+	IO4  = GPIO4
+	IO5  = GPIO5
+	IO6  = GPIO6
+	IO7  = GPIO7
+	IO8  = GPIO8
+	IO9  = GPIO9
+	IO10 = GPIO10
+	IO11 = GPIO11
+	IO12 = GPIO12
+	IO13 = GPIO13
+	IO14 = GPIO14
+	IO15 = GPIO15
+	IO16 = GPIO16
+	IO17 = GPIO17
+	IO18 = GPIO18
+	IO19 = GPIO19
+	IO20 = GPIO20
+	IO21 = GPIO21
+
+	XTAL_32K_P = IO0
+	XTAL_32K_N = IO1
+	MTMS       = IO4
+	MTDI       = IO5
+	MTCK       = IO6
+	MTDO       = IO7
+	VDD_SPI    = IO11
+	SPIHD      = IO12
+	SPISP      = IO13
+	SPICS0     = IO14
+	SPICLK     = IO15
+	SPID       = IO16
+	SPIQ       = IO17
+	U0RXD      = IO20
+	U0TXD      = IO21
+
+	UART_TX_PIN = U0TXD
+	UART_RX_PIN = U0RXD
+)
+
+const (
+	WS2812 = IO2
+)

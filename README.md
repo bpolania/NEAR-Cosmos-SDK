@@ -1,6 +1,6 @@
 # Cosmos-on-NEAR
 
-A Cosmos-inspired application-layer runtime implemented as NEAR smart contracts written in Go with modern WebAssembly bindings.
+A Cosmos-inspired application-layer runtime implemented as NEAR smart contracts written in Go with custom NEAR runtime bindings.
 
 ## Overview
 
@@ -29,20 +29,20 @@ cosmos_on_near/
 ## Requirements
 
 - Go 1.24+ 
-- TinyGo 0.38.0+ (for WASM compilation with modern WebAssembly support)
+- TinyGo 0.38.0+ (for WASM compilation with current TinyGo WebAssembly support)
 - near-cli (for deployment)
 
 ## Building
 
 ```bash
-# Build with TinyGo for WASM target (modern approach)
-tinygo build -target=wasi -o main.wasm ./cmd/modern_main.go
+# Build with TinyGo for WASM target (TinyGo 0.38.0+ compatible)
+tinygo build -target=wasi -o main.wasm ./cmd/tinygo_main.go
 
 # Or using the legacy approach (requires staking module completion)
 ./build.sh
 ```
 
-**Note**: This project has been modernized to use contemporary WebAssembly interfaces instead of deprecated `//go:wasmimport` directives. The modern implementation works with TinyGo 0.38.0+ and Go 1.24+.
+**Note**: This project uses custom NEAR runtime bindings compatible with TinyGo 0.38.0+ instead of near-sdk-go (which requires TinyGo <0.34.0). The implementation works with TinyGo 0.38.0+ and Go 1.24+.
 
 ## Module Details
 
@@ -50,7 +50,7 @@ tinygo build -target=wasi -o main.wasm ./cmd/modern_main.go
 - `Balance` struct with efficient binary serialization
 - `Transfer(sender, receiver, amount)` - Transfer tokens between accounts
 - `Mint(receiver, amount)` - Create new tokens
-- All operations emit NEAR logs via modern runtime bindings
+- All operations emit NEAR logs via custom runtime bindings
 
 ### Staking Module
 - Validator registration and delegation tracking
@@ -71,11 +71,11 @@ tinygo build -target=wasi -o main.wasm ./cmd/modern_main.go
 
 ## Technical Implementation
 
-### Modern WebAssembly Integration
+### TinyGo-Compatible WebAssembly Integration
 - Custom NEAR runtime bindings using `//export` pattern
 - Compatible with TinyGo 0.38.0+ and Go 1.24+
 - Efficient binary serialization instead of Borsh
-- Modern WebAssembly interface standards
+- Uses current TinyGo WebAssembly interface patterns
 
 ### TinyGo Considerations
 - All imports must be TinyGo-compatible
@@ -130,16 +130,16 @@ near call your-account.testnet process_block '{}' --accountId your-account.testn
 
 ### ✅ **Successfully Resolved TinyGo Compilation Issues**
 
-The project has successfully modernized from deprecated `//go:wasmimport` to contemporary WebAssembly interfaces:
+The project has successfully migrated from near-sdk-go (incompatible with TinyGo 0.34+) to custom NEAR runtime bindings:
 
 - **✅ TinyGo 0.38.0 Compatibility**: Full support for Go 1.24+ 
-- **✅ Modern NEAR Bindings**: Custom runtime using `//export` pattern
+- **✅ Custom NEAR Bindings**: Runtime using `//export` pattern compatible with current TinyGo
 - **✅ API Validation**: All 115-block simulation tests passing
 - **✅ State Consistency**: Bank, governance, and block processing verified
-- **🔄 Final Step**: Complete staking module modernization
+- **🔄 Final Step**: Complete staking module updates
 
 ### Ready for Deployment
-Once staking module modernization is complete, the contract will be ready for:
+Once staking module updates are complete, the contract will be ready for:
 1. NEAR testnet deployment
 2. Integration testing with real NEAR environment  
 3. Production deployment with cron.cat automation

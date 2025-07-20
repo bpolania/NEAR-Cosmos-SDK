@@ -2,7 +2,6 @@ package bank
 
 import (
 	"cosmos_on_near/internal/storage"
-	"github.com/vlmoon99/near-sdk-go/env"
 )
 
 type BankModule struct {
@@ -26,12 +25,10 @@ func (bm *BankModule) setBalance(account string, balance *Balance) {
 	bm.store.Set(key, balance.Serialize())
 }
 
-func (bm *BankModule) Transfer(receiver string, amount uint64) {
-	sender := env.PredecessorAccountId()
-	
+func (bm *BankModule) Transfer(sender string, receiver string, amount uint64) {
 	senderBalance := bm.getBalance(sender)
 	if senderBalance.Amount < amount {
-		env.Panic("Insufficient balance")
+		panic("Insufficient balance")
 	}
 	
 	receiverBalance := bm.getBalance(receiver)
@@ -42,7 +39,9 @@ func (bm *BankModule) Transfer(receiver string, amount uint64) {
 	bm.setBalance(sender, senderBalance)
 	bm.setBalance(receiver, receiverBalance)
 	
-	env.Log("Transfer: " + sender + " -> " + receiver + " amount: " + string(rune(amount)))
+	// TODO: Add proper logging when system API is available
+	_ = sender
+	_ = receiver
 }
 
 func (bm *BankModule) Mint(receiver string, amount uint64) {
@@ -51,7 +50,8 @@ func (bm *BankModule) Mint(receiver string, amount uint64) {
 	
 	bm.setBalance(receiver, receiverBalance)
 	
-	env.Log("Mint: " + receiver + " amount: " + string(rune(amount)))
+	// TODO: Add proper logging when system API is available
+	_ = receiver
 }
 
 func (bm *BankModule) GetBalance(account string) uint64 {

@@ -33,8 +33,8 @@ func NewCosmosContract() *CosmosContract {
 }
 
 // Bank module functions
-func (c *CosmosContract) Transfer(receiver string, amount uint64) {
-	c.bankModule.Transfer(receiver, amount)
+func (c *CosmosContract) Transfer(sender string, receiver string, amount uint64) {
+	c.bankModule.Transfer(sender, receiver, amount)
 }
 
 func (c *CosmosContract) Mint(receiver string, amount uint64) {

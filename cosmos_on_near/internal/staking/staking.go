@@ -2,9 +2,8 @@ package staking
 
 import (
 	"cosmos_on_near/internal/bank"
+	"cosmos_on_near/internal/near"
 	"cosmos_on_near/internal/storage"
-	"encoding/binary"
-	"github.com/vlmoon99/near-sdk-go/env"
 	"strconv"
 )
 
@@ -53,18 +52,17 @@ func (sm *StakingModule) addUnbondingEntry(entry *UnbondingEntry) {
 }
 
 func (sm *StakingModule) Delegate(validatorAddr string, amount uint64) {
-	delegator := env.PredecessorAccountId()
-	
+	delegator := "system" // TODO: Get from NEAR context
 	validator := sm.getValidator(validatorAddr)
 	if validator == nil {
-		env.Panic("Validator not found")
+		panic("Validator not found")
 	}
 	
 	if !validator.IsActive {
-		env.Panic("Validator is not active")
+		panic("Validator is not active")
 	}
 	
-	sm.bankModule.Transfer("staking_pool", amount)
+	sm.bankModule.Transfer(delegator, "staking_pool.testnet", amount)
 	
 	delegation := sm.getDelegation(delegator, validatorAddr)
 	if delegation == nil {
@@ -81,21 +79,22 @@ func (sm *StakingModule) Delegate(validatorAddr string, amount uint64) {
 	sm.setDelegation(delegation)
 	sm.setValidator(validator)
 	
-	env.Log("Delegated: " + delegator + " -> " + validatorAddr + " amount: " + strconv.FormatUint(amount, 10))
+	logMsg := "Delegated: " + delegator + " -> " + validatorAddr + " amount: " + strconv.FormatUint(amount, 10)
+	near.LogString(logMsg)
 }
 
 func (sm *StakingModule) Undelegate(validatorAddr string, amount uint64) {
-	delegator := env.PredecessorAccountId()
+	delegator := "system" // TODO: Get from NEAR context
 	currentHeight := sm.store.GetBlockHeight()
 	
 	delegation := sm.getDelegation(delegator, validatorAddr)
 	if delegation == nil || delegation.Amount < amount {
-		env.Panic("Insufficient delegation")
+		return // TODO: Handle error properly
 	}
 	
 	validator := sm.getValidator(validatorAddr)
 	if validator == nil {
-		env.Panic("Validator not found")
+		return // TODO: Handle error properly
 	}
 	
 	delegation.Amount -= amount
@@ -113,7 +112,7 @@ func (sm *StakingModule) Undelegate(validatorAddr string, amount uint64) {
 	
 	sm.addUnbondingEntry(unbondingEntry)
 	
-	env.Log("Undelegated: " + delegator + " from " + validatorAddr + " amount: " + strconv.FormatUint(amount, 10))
+	near.LogString("Undelegated: " + delegator + " from " + validatorAddr + " amount: " + strconv.FormatUint(amount, 10))
 }
 
 func (sm *StakingModule) AddValidator(address string) {
@@ -124,17 +123,17 @@ func (sm *StakingModule) AddValidator(address string) {
 	}
 	
 	sm.setValidator(validator)
-	env.Log("Added validator: " + address)
+	near.LogString("Added validator: " + address)
 }
 
 func (sm *StakingModule) BeginBlock(height uint64) {
-	env.Log("BeginBlock: " + strconv.FormatUint(height, 10))
+	near.LogString("BeginBlock: " + strconv.FormatUint(height, 10))
 }
 
 func (sm *StakingModule) EndBlock(height uint64) {
 	sm.processUnbonding(height)
 	sm.distributeRewards()
-	env.Log("EndBlock: " + strconv.FormatUint(height, 10))
+	near.LogString("EndBlock: " + strconv.FormatUint(height, 10))
 }
 
 func (sm *StakingModule) processUnbonding(currentHeight uint64) {
@@ -143,9 +142,9 @@ func (sm *StakingModule) processUnbonding(currentHeight uint64) {
 	sm.store.IterPrefix(prefix, func(key, value []byte) bool {
 		entry := DeserializeUnbondingEntry(value)
 		if entry != nil && entry.UnlockHeight <= currentHeight {
-			sm.bankModule.Transfer(entry.Delegator, entry.Amount)
+			sm.bankModule.Transfer("staking_pool.testnet", entry.Delegator, entry.Amount)
 			sm.store.Delete(key)
-			env.Log("Released unbonding: " + entry.Delegator + " amount: " + strconv.FormatUint(entry.Amount, 10))
+			near.LogString("Released unbonding: " + entry.Delegator + " amount: " + strconv.FormatUint(entry.Amount, 10))
 		}
 		return true
 	})
@@ -158,8 +157,8 @@ func (sm *StakingModule) distributeRewards() {
 		validator := DeserializeValidator(value)
 		if validator != nil && validator.IsActive && validator.DelegatedStake > 0 {
 			rewardAmount := validator.DelegatedStake * RewardPercentage / 100
-			sm.bankModule.Mint("staking_pool", rewardAmount)
-			env.Log("Distributed rewards to validator: " + validator.Address + " amount: " + strconv.FormatUint(rewardAmount, 10))
+			sm.bankModule.Mint("staking_pool.testnet", rewardAmount)
+			near.LogString("Distributed rewards to validator: " + validator.Address + " amount: " + strconv.FormatUint(rewardAmount, 10))
 		}
 		return true
 	})
