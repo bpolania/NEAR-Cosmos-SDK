@@ -2,6 +2,10 @@
 cosmos_on_near/build/
 *.wasm
 
+# Rust build artifacts
+target/
+Cargo.lock
+
 # Go build artifacts
 *.exe
 *.exe~
