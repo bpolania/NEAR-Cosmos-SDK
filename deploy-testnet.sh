@@ -19,8 +19,7 @@ export NEAR_ENV=testnet
 export NEAR_CLI_TESTNET_RPC_SERVER_URL=https://rpc.testnet.near.org
 export NEAR_CLI_TESTNET_WALLET_URL=https://wallet.testnet.near.org
 
-# Configuration
-CONTRACT_NAME="${CONTRACT_NAME:-cosmos-on-near.testnet}"
+# Configuration will be set from NEAR_ACCOUNT_ID after loading .env
 WASM_FILE="tinygo_contract.wasm"
 
 # Check if TinyGo contract is built
@@ -71,11 +70,11 @@ EOF
 echo "✅ Credentials configured for $NEAR_ACCOUNT_ID"
 
 # Use the account from environment variable
-CONTRACT_NAME="${CONTRACT_NAME:-$NEAR_ACCOUNT_ID}"
+CONTRACT_NAME="$NEAR_ACCOUNT_ID"
 
 # Deploy the contract
 echo "📤 Deploying contract to $CONTRACT_NAME..."
-near deploy --accountId $CONTRACT_NAME --wasmFile "$WASM_FILE"
+near deploy $CONTRACT_NAME "$WASM_FILE"
 
 echo "✅ Contract deployed successfully!"
 echo ""

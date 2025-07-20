@@ -167,3 +167,10 @@ Once staking module updates are complete, the contract will be ready for:
 3. Production deployment with cron.cat automation
 
 The core architecture and business logic have been proven through comprehensive testing, making this a robust Cosmos-inspired runtime for NEAR Protocol.
+
+## LATEST DEPLOY
+
+**Contract Address:** `cuteharbor3573.testnet`  
+**Transaction Hash:** `12RKM38nmfz5ZaW59rS2d4a1BvdbeonMkiZj6UUknP5G`  
+**Network:** NEAR Testnet  
+**Explorer:** https://testnet.nearblocks.io/txns/12RKM38nmfz5ZaW59rS2d4a1BvdbeonMkiZj6UUknP5G
