@@ -33,3 +33,9 @@ Thumbs.db
 
 # NEAR CLI cache
 .near-credentials/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.development
