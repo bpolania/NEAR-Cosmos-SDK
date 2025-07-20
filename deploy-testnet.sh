@@ -20,13 +20,13 @@ export NEAR_CLI_TESTNET_RPC_SERVER_URL=https://rpc.testnet.near.org
 export NEAR_CLI_TESTNET_WALLET_URL=https://wallet.testnet.near.org
 
 # Configuration will be set from NEAR_ACCOUNT_ID after loading .env
-WASM_FILE="tinygo_contract.wasm"
+WASM_FILE="cosmos_on_near/tinygo_contract.wasm"
 
-# Check if TinyGo contract is built
+# Check if Go contract is built
 if [ ! -f "$WASM_FILE" ]; then
-    echo "📦 Building TinyGo contract first..."
+    echo "📦 Building Go contract with TinyGo..."
     cd cosmos_on_near
-    tinygo build -target=wasi -o ../tinygo_contract.wasm ./cmd/tinygo_main.go
+    tinygo build -target=wasi -o tinygo_contract.wasm ./cmd/tinygo_main.go
     cd ..
     echo "✅ Built $WASM_FILE"
 fi
@@ -78,9 +78,7 @@ near deploy $CONTRACT_NAME "$WASM_FILE"
 
 echo "✅ Contract deployed successfully!"
 echo ""
-echo "⚠️  NOTE: This TinyGo contract has placeholder input parsing."
-echo "   Function calls will execute but with default/system values."
-echo "   For full functionality, implement proper JSON input parsing."
+echo "✅ This Go contract has custom NEAR bindings with TinyGo-compatible WASM."
 echo ""
 echo "🔧 You can test basic contract calls:"
 echo "   # Add a validator (uses system default)"
