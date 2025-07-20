@@ -1,5 +1,0 @@
-{
-	"inherits": ["esp32"],
-	"build-tags": ["m5stick_c"],
-	"serial-port": ["0403:6001"]
-}

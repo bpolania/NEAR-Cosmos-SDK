@@ -1,5 +1,0 @@
-{
-	"inherits": ["esp32"],
-	"build-tags": ["m5paper"],
-	"serial-port": ["1a86:55d4"]
-}

@@ -42,6 +42,28 @@ tinygo build -target=wasi -o main.wasm ./cmd/tinygo_main.go
 ./build.sh
 ```
 
+## Deployment
+
+### Quick Start
+```bash
+# 1. Setup deployment environment
+./setup-deployment.sh
+
+# 2. Edit .env file with your credentials
+# 3. Deploy to testnet
+./deploy-testnet.sh
+```
+
+### Manual Setup
+```bash
+# Set environment variables
+export NEAR_ACCOUNT_ID=your-account.testnet
+export NEAR_PRIVATE_KEY=ed25519:your-private-key-here
+
+# Deploy
+./deploy-testnet.sh
+```
+
 **Note**: This project uses custom NEAR runtime bindings compatible with TinyGo 0.38.0+ instead of near-sdk-go (which requires TinyGo <0.34.0). The implementation works with TinyGo 0.38.0+ and Go 1.24+.
 
 ## Module Details

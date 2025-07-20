@@ -6,8 +6,21 @@ set -e
 
 echo "🚀 Deploying Cosmos-on-NEAR to NEAR testnet..."
 
+# Load environment from .env file if it exists
+if [ -f ".env" ]; then
+    echo "📊 Loading environment from .env file..."
+    set -a  # Export all variables
+    source .env
+    set +a  # Stop exporting
+fi
+
+# Environment Configuration
+export NEAR_ENV=testnet
+export NEAR_CLI_TESTNET_RPC_SERVER_URL=https://rpc.testnet.near.org
+export NEAR_CLI_TESTNET_WALLET_URL=https://wallet.testnet.near.org
+
 # Configuration
-CONTRACT_NAME="cosmos-on-near.testnet"
+CONTRACT_NAME="${CONTRACT_NAME:-cosmos-on-near.testnet}"
 WASM_FILE="tinygo_contract.wasm"
 
 # Check if TinyGo contract is built
@@ -23,13 +36,42 @@ fi
 WASM_SIZE=$(ls -lh "$WASM_FILE" | awk '{print $5}')
 echo "📏 Contract size: $WASM_SIZE"
 
-# Login to NEAR (if not already logged in)
-echo "🔐 Checking NEAR CLI login status..."
-if ! near state $CONTRACT_NAME >/dev/null 2>&1; then
-    echo "Please login to NEAR CLI first:"
-    echo "  near login"
+# Check for required environment variables
+echo "🔐 Checking authentication configuration..."
+
+if [ -z "$NEAR_ACCOUNT_ID" ]; then
+    echo "❌ Error: NEAR_ACCOUNT_ID environment variable not set"
+    echo "Please set your NEAR account ID:"
+    echo "  export NEAR_ACCOUNT_ID=your-account.testnet"
     exit 1
 fi
+
+if [ -z "$NEAR_PRIVATE_KEY" ]; then
+    echo "❌ Error: NEAR_PRIVATE_KEY environment variable not set"
+    echo "Please set your private key:"
+    echo "  export NEAR_PRIVATE_KEY=ed25519:your-private-key-here"
+    exit 1
+fi
+
+# Create credentials directory and file
+CREDS_DIR="$HOME/.near-credentials/testnet"
+CREDS_FILE="$CREDS_DIR/$NEAR_ACCOUNT_ID.json"
+
+mkdir -p "$CREDS_DIR"
+
+# Create credentials file from environment variables
+cat > "$CREDS_FILE" << EOF
+{
+  "account_id": "$NEAR_ACCOUNT_ID",
+  "public_key": "",
+  "private_key": "$NEAR_PRIVATE_KEY"
+}
+EOF
+
+echo "✅ Credentials configured for $NEAR_ACCOUNT_ID"
+
+# Use the account from environment variable
+CONTRACT_NAME="${CONTRACT_NAME:-$NEAR_ACCOUNT_ID}"
 
 # Deploy the contract
 echo "📤 Deploying contract to $CONTRACT_NAME..."

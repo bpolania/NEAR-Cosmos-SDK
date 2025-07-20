@@ -1,4 +1,0 @@
-{
-    "inherits": ["stm32f4disco"],
-    "openocd-interface": "stlink-v2-1"
-}
