@@ -108,6 +108,8 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 - **Client State Management**: Create and update Tendermint light clients with trust parameters
 - **Consensus State Tracking**: Store and retrieve consensus states at verified heights
 - **Cryptographic Verification**: Full Ed25519 signature verification and complete ICS-23 IAVL Merkle proof verification
+- **Batch Proof Verification**: Efficient verification of multiple key-value pairs in single operations for improved performance
+- **Range Proof Verification**: Efficient verification of consecutive key ranges for packet sequences and sequential state updates
 - **Security Hardened**: VSA-2022-103 critical security patches implemented to prevent proof forgery attacks
 - **Canonical JSON Signing**: Proper Tendermint canonical JSON format for signature verification
 - **Header Validation**: Comprehensive signature verification, voting power validation, and timestamp checks
@@ -146,7 +148,7 @@ cd cosmos_sdk_near
 cargo test
 ```
 
-**Modular Test Structure (8 test files, 43 tests total):**
+**Modular Test Structure (8 test files, 92 tests total):**
 
 **Core Module Tests (12 tests, all passing):**
 - **🏦 Bank Module** (`bank_integration_tests.rs`): Token minting, transfers, balance validation, error handling (3 tests)
@@ -155,8 +157,8 @@ cargo test
 - **⏰ Block Processing** (`block_integration_tests.rs`): Single and multiple block advancement with cross-module integration (2 tests)
 - **🔗 End-to-End** (`e2e_integration_tests.rs`): Complete multi-module workflow with realistic reward calculations (1 test)
 
-**IBC Module Tests (31 tests, all passing):**
-- **IBC Client (ICS-07)** (`ibc_client_integration_tests.rs`): Client management, cryptographic verification, state tracking, proof validation (9 tests)
+**IBC Module Tests (42 tests, all passing):**
+- **IBC Client (ICS-07)** (`ibc_client_integration_tests.rs`): Client management, cryptographic verification, batch proof verification, range proof verification, state tracking, proof validation (20 tests)
 - **IBC Connection (ICS-03)** (`ibc_connection_integration_tests.rs`): Connection handshake flows, state transitions, error handling (9 tests)
 - **IBC Channel (ICS-04)** (`ibc_channel_integration_tests.rs`): Channel handshake, packet transmission, timeout handling, both channel types (13 tests)
 
