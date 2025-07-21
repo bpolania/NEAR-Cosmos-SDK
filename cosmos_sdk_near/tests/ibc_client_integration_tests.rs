@@ -528,6 +528,8 @@ mod light_client_tests {
 
     #[tokio::test]
     async fn test_multiple_clients() -> Result<()> {
+        // Add delay to avoid port conflicts with other test files
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;
@@ -589,6 +591,652 @@ mod light_client_tests {
 
         assert_eq!(state1.unwrap()["chain_id"], "test-chain-1");
         assert_eq!(state2.unwrap()["chain_id"], "test-chain-2");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_verify_batch_membership() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a valid ICS-23 batch proof structure
+        let batch_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": {
+                "entries": [
+                    {
+                        "exist": {
+                            "key": [1, 2, 3, 4],
+                            "value": [5, 6, 7, 8],
+                            "leaf": {
+                                "hash": "Sha256",
+                                "prehash_key": "NoHash",
+                                "prehash_value": "Sha256",
+                                "length": "VarProto",
+                                "prefix": [0]
+                            },
+                            "path": []
+                        }
+                    },
+                    {
+                        "exist": {
+                            "key": [2, 3, 4, 5],
+                            "value": [6, 7, 8, 9],
+                            "leaf": {
+                                "hash": "Sha256",
+                                "prehash_key": "NoHash",
+                                "prehash_value": "Sha256",
+                                "length": "VarProto",
+                                "prefix": [0]
+                            },
+                            "path": []
+                        }
+                    },
+                    {
+                        "nonexist": {
+                            "key": [3, 3, 3, 3],
+                            "left": {
+                                "key": [2, 3, 4, 5],
+                                "value": [6, 7, 8, 9],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            },
+                            "right": {
+                                "key": [4, 4, 4, 4],
+                                "value": [10, 11, 12, 13],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            }
+                        }
+                    }
+                ]
+            },
+            "compressed": null
+        });
+
+        // Test verify_batch_membership with mixed existence and non-existence
+        let items = vec![
+            ([1, 2, 3, 4], Some([5, 6, 7, 8])),
+            ([2, 3, 4, 5], Some([6, 7, 8, 9])),
+            ([3, 3, 3, 3], None) // non-membership item
+        ];
+
+        let verify_result = contract
+            .view("ibc_verify_batch_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "items": items,
+                "proof": serde_json::to_vec(&batch_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        println!("Batch proof verification result: {}", result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_verify_mixed_batch_membership() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a batch proof with mixed membership/non-membership
+        let mixed_batch_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": {
+                "entries": [
+                    {
+                        "exist": {
+                            "key": [100, 101, 102],
+                            "value": [200, 201, 202],
+                            "leaf": {
+                                "hash": "Sha256",
+                                "prehash_key": "NoHash",
+                                "prehash_value": "Sha256",
+                                "length": "VarProto",
+                                "prefix": [0]
+                            },
+                            "path": []
+                        }
+                    },
+                    {
+                        "exist": {
+                            "key": [110, 111, 112],
+                            "value": [210, 211, 212],
+                            "leaf": {
+                                "hash": "Sha256",
+                                "prehash_key": "NoHash",
+                                "prehash_value": "Sha256",
+                                "length": "VarProto",
+                                "prefix": [0]
+                            },
+                            "path": []
+                        }
+                    },
+                    {
+                        "nonexist": {
+                            "key": [105, 105, 105],
+                            "left": {
+                                "key": [100, 101, 102],
+                                "value": [200, 201, 202],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            },
+                            "right": {
+                                "key": [110, 111, 112],
+                                "value": [210, 211, 212],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            }
+                        }
+                    },
+                    {
+                        "nonexist": {
+                            "key": [115, 115, 115],
+                            "left": {
+                                "key": [110, 111, 112],
+                                "value": [210, 211, 212],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            },
+                            "right": {
+                                "key": [120, 121, 122],
+                                "value": [220, 221, 222],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            }
+                        }
+                    }
+                ]
+            },
+            "compressed": null
+        });
+
+        // Test verify_mixed_batch_membership with separate exist and non-exist lists
+        let exist_items = vec![
+            ([100, 101, 102], [200, 201, 202]),
+            ([110, 111, 112], [210, 211, 212])
+        ];
+        let non_exist_keys = vec![
+            [105, 105, 105],
+            [115, 115, 115]
+        ];
+
+        let verify_result = contract
+            .view("ibc_verify_mixed_batch_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "exist_items": exist_items,
+                "non_exist_keys": non_exist_keys,
+                "proof": serde_json::to_vec(&mixed_batch_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        println!("Mixed batch proof verification result: {}", result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_verify_compressed_batch_membership() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a compressed batch proof with lookup table
+        let compressed_batch_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": null,
+            "compressed": {
+                "entries": [
+                    {
+                        "exist": {
+                            "key": [50, 51, 52],
+                            "value": [150, 151, 152],
+                            "leaf": {
+                                "hash": "Sha256",
+                                "prehash_key": "NoHash",
+                                "prehash_value": "Sha256",
+                                "length": "VarProto",
+                                "prefix": [0]
+                            },
+                            "path": [
+                                {"hash": "Sha256", "prefix": [1, 0], "suffix": []},
+                                {"hash": "Sha256", "prefix": [1, 1], "suffix": []}
+                            ]
+                        }
+                    },
+                    {
+                        "exist": {
+                            "key": [60, 61, 62],
+                            "value": [160, 161, 162],
+                            "leaf": {
+                                "hash": "Sha256",
+                                "prehash_key": "NoHash",
+                                "prehash_value": "Sha256",
+                                "length": "VarProto",
+                                "prefix": [0]
+                            },
+                            "path": [
+                                {"hash": "Sha256", "prefix": [1, 0], "suffix": []},
+                                {"hash": "Sha256", "prefix": [1, 2], "suffix": []}
+                            ]
+                        }
+                    },
+                    {
+                        "nonexist": {
+                            "key": [55, 55, 55],
+                            "left": {
+                                "key": [50, 51, 52],
+                                "value": [150, 151, 152],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            },
+                            "right": {
+                                "key": [60, 61, 62],
+                                "value": [160, 161, 162],
+                                "leaf": {
+                                    "hash": "Sha256",
+                                    "prehash_key": "NoHash",
+                                    "prehash_value": "Sha256",
+                                    "length": "VarProto",
+                                    "prefix": [0]
+                                },
+                                "path": []
+                            }
+                        }
+                    }
+                ],
+                "lookup_inners": [
+                    {
+                        "hash": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                        "prefix": [1, 0],
+                        "suffix": []
+                    },
+                    {
+                        "hash": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+                        "prefix": [1, 1],
+                        "suffix": []
+                    },
+                    {
+                        "hash": [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                        "prefix": [1, 2],
+                        "suffix": []
+                    }
+                ]
+            }
+        });
+
+        // Test verify_compressed_batch_membership with compressed proof format
+        let items = vec![
+            ([50, 51, 52], Some([150, 151, 152])),
+            ([60, 61, 62], Some([160, 161, 162])),
+            ([55, 55, 55], None) // non-membership item
+        ];
+
+        let verify_result = contract
+            .view("ibc_verify_compressed_batch_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "items": items,
+                "proof": serde_json::to_vec(&compressed_batch_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        println!("Compressed batch proof verification result: {}", result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_batch_proof_empty_items() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Test with empty items list
+        let empty_items: Vec<(Vec<u8>, Option<Vec<u8>>)> = vec![];
+        
+        let empty_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": {
+                "entries": []
+            },
+            "compressed": null
+        });
+
+        let verify_result = contract
+            .view("ibc_verify_batch_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "items": empty_items,
+                "proof": serde_json::to_vec(&empty_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        println!("Empty batch proof verification result: {}", result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_batch_proof_invalid_client() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+
+        // Test with non-existent client
+        let items = vec![
+            ([1, 2, 3, 4], Some([5, 6, 7, 8]))
+        ];
+        
+        let proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": {
+                "entries": [{
+                    "exist": {
+                        "key": [1, 2, 3, 4],
+                        "value": [5, 6, 7, 8],
+                        "leaf": {
+                            "hash": "Sha256",
+                            "prehash_key": "NoHash",
+                            "prehash_value": "Sha256",
+                            "length": "VarProto",
+                            "prefix": [0]
+                        },
+                        "path": []
+                    }
+                }]
+            },
+            "compressed": null
+        });
+
+        let verify_result = contract
+            .view("ibc_verify_batch_membership")
+            .args_json(json!({
+                "client_id": "non-existent-client",
+                "height": 100,
+                "items": items,
+                "proof": serde_json::to_vec(&proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        assert!(!result); // Should return false for non-existent client
+        println!("Invalid client batch proof verification result: {}", result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_batch_proof_invalid_height() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Test with non-existent height
+        let items = vec![
+            ([1, 2, 3, 4], Some([5, 6, 7, 8]))
+        ];
+        
+        let proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": {
+                "entries": [{
+                    "exist": {
+                        "key": [1, 2, 3, 4],
+                        "value": [5, 6, 7, 8],
+                        "leaf": {
+                            "hash": "Sha256",
+                            "prehash_key": "NoHash",
+                            "prehash_value": "Sha256",
+                            "length": "VarProto",
+                            "prefix": [0]
+                        },
+                        "path": []
+                    }
+                }]
+            },
+            "compressed": null
+        });
+
+        let verify_result = contract
+            .view("ibc_verify_batch_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 999, // Non-existent height
+                "items": items,
+                "proof": serde_json::to_vec(&proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        assert!(!result); // Should return false for non-existent height
+        println!("Invalid height batch proof verification result: {}", result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_large_batch_proof_performance() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a large batch with 10 items to test performance
+        let mut batch_entries = vec![];
+        let mut items = vec![];
+        
+        for i in 0..10 {
+            let key = vec![i as u8, (i+1) as u8, (i+2) as u8];
+            let value = vec![(i+100) as u8, (i+101) as u8, (i+102) as u8];
+            
+            batch_entries.push(json!({
+                "exist": {
+                    "key": key,
+                    "value": value,
+                    "leaf": {
+                        "hash": "Sha256",
+                        "prehash_key": "NoHash",
+                        "prehash_value": "Sha256",
+                        "length": "VarProto",
+                        "prefix": [0]
+                    },
+                    "path": []
+                }
+            }));
+            
+            items.push((key, Some(value)));
+        }
+
+        let large_batch_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": {
+                "entries": batch_entries
+            },
+            "compressed": null
+        });
+
+        let start = std::time::Instant::now();
+        
+        let verify_result = contract
+            .view("ibc_verify_batch_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "items": items,
+                "proof": serde_json::to_vec(&large_batch_proof).unwrap()
+            }))
+            .await?;
+
+        let duration = start.elapsed();
+        let result: bool = verify_result.json()?;
+        
+        println!("Large batch (10 items) verification took: {:?}, result: {}", duration, result);
+        
+        // Performance should be reasonable for batch operations
+        assert!(duration.as_secs() < 5, "Batch verification took too long: {:?}", duration);
 
         Ok(())
     }

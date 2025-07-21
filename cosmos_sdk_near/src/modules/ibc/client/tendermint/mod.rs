@@ -263,6 +263,122 @@ impl TendermintLightClientModule {
         crypto::verify_merkle_proof(&consensus_state.root, &key, None, &proof)
     }
 
+    /// Verify multiple key-value pairs efficiently using batch proofs
+    /// 
+    /// This function provides significant performance improvements when verifying
+    /// many keys at once, which is common in cross-chain applications.
+    /// 
+    /// # Arguments
+    /// * `client_id` - The client ID for the consensus state
+    /// * `height` - The height to verify against
+    /// * `items` - Vector of (key, value) pairs to verify. Use None for value for non-membership
+    /// * `proof` - The batch proof bytes
+    /// 
+    /// # Returns
+    /// * True if all items in the batch are valid
+    pub fn verify_batch_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        items: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+        proof: Vec<u8>,
+    ) -> bool {
+        // Get consensus state at the specified height
+        let consensus_key = format!("{}#{}", client_id, height);
+        let consensus_state = match self.consensus_states.get(&consensus_key) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Consensus state not found for height {}", height));
+                return false;
+            }
+        };
+
+        // Convert Vec items to slice format for crypto function
+        let items_refs: Vec<(&[u8], Option<&[u8]>)> = items.iter()
+            .map(|(k, v)| (k.as_slice(), v.as_ref().map(|val| val.as_slice())))
+            .collect();
+
+        // Verify the batch proof against the consensus state root
+        crypto::verify_batch_merkle_proof(&consensus_state.root, &items_refs, &proof)
+    }
+
+    /// Verify mixed batch with separate existence and non-existence lists
+    /// 
+    /// Convenience method for batches where you have separate lists of keys
+    /// that should exist vs keys that should not exist.
+    /// 
+    /// # Arguments
+    /// * `client_id` - The client ID for the consensus state
+    /// * `height` - The height to verify against
+    /// * `exist_items` - Vector of (key, value) pairs that should exist
+    /// * `non_exist_keys` - Vector of keys that should not exist
+    /// * `proof` - The batch proof bytes
+    pub fn verify_mixed_batch_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        exist_items: Vec<(Vec<u8>, Vec<u8>)>,
+        non_exist_keys: Vec<Vec<u8>>,
+        proof: Vec<u8>,
+    ) -> bool {
+        // Get consensus state at the specified height
+        let consensus_key = format!("{}#{}", client_id, height);
+        let consensus_state = match self.consensus_states.get(&consensus_key) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Consensus state not found for height {}", height));
+                return false;
+            }
+        };
+
+        // Convert Vec items to slice format for crypto function
+        let exist_refs: Vec<(&[u8], &[u8])> = exist_items.iter()
+            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+            .collect();
+        let non_exist_refs: Vec<&[u8]> = non_exist_keys.iter()
+            .map(|k| k.as_slice())
+            .collect();
+
+        // Verify the mixed batch proof against the consensus state root
+        crypto::verify_mixed_batch_merkle_proof(&consensus_state.root, &exist_refs, &non_exist_refs, &proof)
+    }
+
+    /// Verify compressed batch proof with shared inner nodes
+    /// 
+    /// Compressed batch proofs are more efficient for large batches with
+    /// overlapping tree paths, using a lookup table for shared nodes.
+    /// 
+    /// # Arguments
+    /// * `client_id` - The client ID for the consensus state
+    /// * `height` - The height to verify against
+    /// * `items` - Vector of (key, value) pairs to verify. Use None for value for non-membership
+    /// * `proof` - The compressed batch proof bytes
+    pub fn verify_compressed_batch_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        items: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+        proof: Vec<u8>,
+    ) -> bool {
+        // Get consensus state at the specified height
+        let consensus_key = format!("{}#{}", client_id, height);
+        let consensus_state = match self.consensus_states.get(&consensus_key) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Consensus state not found for height {}", height));
+                return false;
+            }
+        };
+
+        // Convert Vec items to slice format for crypto function
+        let items_refs: Vec<(&[u8], Option<&[u8]>)> = items.iter()
+            .map(|(k, v)| (k.as_slice(), v.as_ref().map(|val| val.as_slice())))
+            .collect();
+
+        // Verify the compressed batch proof against the consensus state root
+        crypto::verify_compressed_batch_merkle_proof(&consensus_state.root, &items_refs, &proof)
+    }
+
     /// Get the current state of a light client
     /// 
     /// # Arguments

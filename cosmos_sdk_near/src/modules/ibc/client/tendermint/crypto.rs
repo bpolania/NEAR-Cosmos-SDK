@@ -387,6 +387,100 @@ pub fn verify_ed25519_signature(pubkey_bytes: &[u8], message: &[u8], signature: 
     pubkey.verify(message, &sig).is_ok()
 }
 
+/// Verify a batch of Merkle proofs efficiently
+/// 
+/// This function verifies multiple key-value pairs in a single operation,
+/// providing significant performance improvements for cross-chain applications.
+/// 
+/// # Arguments
+/// * `root` - The IAVL tree root hash
+/// * `items` - Vector of (key, value) pairs to verify. Use None for value for non-membership
+/// * `proof_bytes` - The ICS-23 formatted batch proof bytes
+/// 
+/// # Returns
+/// * True if all proofs in the batch are valid, false otherwise
+pub fn verify_batch_merkle_proof(
+    root: &[u8],
+    items: &[(&[u8], Option<&[u8]>)],
+    proof_bytes: &[u8],
+) -> bool {
+    // Parse the ICS-23 batch proof from bytes
+    let proof = match parse_ics23_proof(proof_bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            env::log_str(&format!("Failed to parse ICS-23 batch proof: {}", e));
+            return false;
+        }
+    };
+
+    // Get the appropriate proof specification for IAVL/Tendermint
+    let spec = get_iavl_spec();
+    
+    // Verify batch proof
+    proof.verify_batch(&spec, root, items)
+}
+
+/// Verify a mixed batch of membership and non-membership proofs
+/// 
+/// Convenience function for verifying batches with separate existence and non-existence lists.
+/// 
+/// # Arguments
+/// * `root` - The IAVL tree root hash
+/// * `exist_items` - Vector of (key, value) pairs that should exist
+/// * `non_exist_keys` - Vector of keys that should not exist
+/// * `proof_bytes` - The ICS-23 formatted batch proof bytes
+pub fn verify_mixed_batch_merkle_proof(
+    root: &[u8],
+    exist_items: &[(&[u8], &[u8])],
+    non_exist_keys: &[&[u8]],
+    proof_bytes: &[u8],
+) -> bool {
+    // Parse the ICS-23 batch proof from bytes
+    let proof = match parse_ics23_proof(proof_bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            env::log_str(&format!("Failed to parse ICS-23 mixed batch proof: {}", e));
+            return false;
+        }
+    };
+
+    // Get the appropriate proof specification for IAVL/Tendermint
+    let spec = get_iavl_spec();
+    
+    // Verify mixed batch proof
+    proof.verify_mixed_batch(&spec, root, exist_items, non_exist_keys)
+}
+
+/// Verify a compressed batch proof with shared inner nodes
+/// 
+/// Compressed batch proofs use a lookup table for shared inner nodes,
+/// making them more efficient for large batches with overlapping tree paths.
+/// 
+/// # Arguments
+/// * `root` - The IAVL tree root hash
+/// * `items` - Vector of (key, value) pairs to verify. Use None for value for non-membership
+/// * `proof_bytes` - The ICS-23 formatted compressed batch proof bytes
+pub fn verify_compressed_batch_merkle_proof(
+    root: &[u8],
+    items: &[(&[u8], Option<&[u8]>)],
+    proof_bytes: &[u8],
+) -> bool {
+    // Parse the ICS-23 compressed batch proof from bytes
+    let proof = match parse_ics23_proof(proof_bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            env::log_str(&format!("Failed to parse ICS-23 compressed batch proof: {}", e));
+            return false;
+        }
+    };
+
+    // Get the appropriate proof specification for IAVL/Tendermint
+    let spec = get_iavl_spec();
+    
+    // Verify compressed batch proof
+    proof.verify_compressed_batch(&spec, root, items)
+}
+
 /// Parse ICS-23 proof from bytes
 /// 
 /// This function deserializes the ICS-23 proof structure from bytes.

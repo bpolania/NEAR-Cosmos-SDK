@@ -144,6 +144,37 @@ impl CosmosContract {
         self.ibc_client_module.verify_non_membership(client_id, height, key, proof)
     }
 
+    pub fn ibc_verify_batch_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        items: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+        proof: Vec<u8>,
+    ) -> bool {
+        self.ibc_client_module.verify_batch_membership(client_id, height, items, proof)
+    }
+
+    pub fn ibc_verify_mixed_batch_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        exist_items: Vec<(Vec<u8>, Vec<u8>)>,
+        non_exist_keys: Vec<Vec<u8>>,
+        proof: Vec<u8>,
+    ) -> bool {
+        self.ibc_client_module.verify_mixed_batch_membership(client_id, height, exist_items, non_exist_keys, proof)
+    }
+
+    pub fn ibc_verify_compressed_batch_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        items: Vec<(Vec<u8>, Option<Vec<u8>>)>,
+        proof: Vec<u8>,
+    ) -> bool {
+        self.ibc_client_module.verify_compressed_batch_membership(client_id, height, items, proof)
+    }
+
     pub fn ibc_get_client_state(&self, client_id: String) -> Option<modules::ibc::client::tendermint::ClientState> {
         self.ibc_client_module.get_client_state(client_id)
     }
