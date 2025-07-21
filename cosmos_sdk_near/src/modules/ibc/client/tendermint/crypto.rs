@@ -2,8 +2,10 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256};
 use near_sdk::{env, serde_json};
 use chrono::{Utc, TimeZone, Datelike, Timelike};
+use near_sdk::borsh::BorshDeserialize;
 
 use super::types::{Commit, PublicKey, ValidatorSet, Validator};
+use super::ics23::{CommitmentProof, get_iavl_spec};
 
 /// Verify commit signatures against a validator set
 /// 
@@ -240,16 +242,16 @@ fn format_canonical_time(timestamp: u64) -> String {
     )
 }
 
-/// Verify a Merkle proof against an IAVL tree root
+/// Verify a Merkle proof against an IAVL tree root using ICS-23 format
 /// 
 /// This function verifies that a key-value pair exists (or doesn't exist)
-/// in an IAVL tree with the given root hash.
+/// in an IAVL tree with the given root hash using the ICS-23 proof specification.
 /// 
 /// # Arguments
 /// * `root` - The IAVL tree root hash
 /// * `key` - The key to verify
 /// * `value` - The value to verify (None for non-membership proofs)
-/// * `proof` - The Merkle proof
+/// * `proof_bytes` - The ICS-23 formatted proof bytes
 /// 
 /// # Returns
 /// * True if the proof is valid, false otherwise
@@ -257,32 +259,28 @@ pub fn verify_merkle_proof(
     root: &[u8],
     key: &[u8],
     value: Option<&[u8]>,
-    _proof: &[u8],
+    proof_bytes: &[u8],
 ) -> bool {
-    // Simplified IAVL proof verification for demonstration
-    // In a full implementation, this would parse the proof structure
-    // and verify each step up to the root
+    // Parse the ICS-23 proof from bytes
+    let proof = match parse_ics23_proof(proof_bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            env::log_str(&format!("Failed to parse ICS-23 proof: {}", e));
+            return false;
+        }
+    };
+
+    // Get the appropriate proof specification for IAVL/Tendermint
+    let spec = get_iavl_spec();
     
     match value {
         Some(val) => {
-            // For membership proofs, compute the leaf hash
-            let leaf_hash = hash_iavl_leaf(key, val);
-            
-            // For now, just verify that we can compute the leaf hash
-            // A full implementation would verify the entire proof path
-            if leaf_hash.is_empty() {
-                env::log_str("Failed to compute IAVL leaf hash");
-                false
-            } else {
-                // This is a placeholder - in reality we'd verify the full proof
-                env::log_str("IAVL membership verification - placeholder implementation");
-                !root.is_empty() // Return true if root is not empty (placeholder logic)
-            }
+            // For membership proofs
+            proof.verify_membership(&spec, root, key, val)
         }
         None => {
-            // For non-membership proofs, verify the key doesn't exist
-            env::log_str("IAVL non-membership verification - placeholder implementation");
-            !root.is_empty() // Return true if root is not empty (placeholder logic)
+            // For non-membership proofs
+            proof.verify_non_membership(&spec, root, key)
         }
     }
 }
@@ -298,6 +296,7 @@ pub fn verify_merkle_proof(
 /// 
 /// # Returns
 /// * The IAVL leaf hash
+#[allow(dead_code)]
 pub fn hash_iavl_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     
@@ -324,6 +323,7 @@ pub fn hash_iavl_leaf(key: &[u8], value: &[u8]) -> Vec<u8> {
 /// 
 /// # Returns
 /// * The varint-encoded bytes
+#[allow(dead_code)]
 fn encode_varint(mut value: u64) -> Vec<u8> {
     let mut result = Vec::new();
     
@@ -387,9 +387,35 @@ pub fn verify_ed25519_signature(pubkey_bytes: &[u8], message: &[u8], signature: 
     pubkey.verify(message, &sig).is_ok()
 }
 
+/// Parse ICS-23 proof from bytes
+/// 
+/// This function deserializes the ICS-23 proof structure from bytes.
+/// The proof can be in Borsh format for NEAR compatibility or JSON for
+/// cross-chain compatibility.
+/// 
+/// # Arguments
+/// * `proof_bytes` - The serialized proof bytes
+/// 
+/// # Returns
+/// * The deserialized CommitmentProof or an error
+pub fn parse_ics23_proof(proof_bytes: &[u8]) -> Result<CommitmentProof, String> {
+    // First try Borsh deserialization (NEAR format)
+    if let Ok(proof) = CommitmentProof::try_from_slice(proof_bytes) {
+        return Ok(proof);
+    }
+    
+    // Fall back to JSON deserialization (cross-chain format)
+    match serde_json::from_slice::<CommitmentProof>(proof_bytes) {
+        Ok(proof) => Ok(proof),
+        Err(e) => Err(format!("Failed to parse proof as JSON: {}", e)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::modules::ibc::client::tendermint::ics23::*;
+    use serde_json::json;
     
     #[test]
     fn test_encode_varint() {
@@ -406,5 +432,65 @@ mod tests {
         let hash = sha256(data);
         let expected = hex::decode("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9").unwrap();
         assert_eq!(hash, expected);
+    }
+    
+    #[test]
+    fn test_parse_ics23_proof_json() {
+        // Test JSON deserialization of ICS-23 proof
+        let proof_json = json!({
+            "proof": {
+                "key": [1, 2, 3, 4],
+                "value": [5, 6, 7, 8],
+                "leaf": {
+                    "hash": "Sha256",
+                    "prehash_key": "NoHash",
+                    "prehash_value": "Sha256", 
+                    "length": "VarProto",
+                    "prefix": [0]
+                },
+                "path": []
+            },
+            "non_exist": null,
+            "batch": null,
+            "compressed": null
+        });
+        
+        let proof_bytes = serde_json::to_vec(&proof_json).unwrap();
+        let parsed_proof = parse_ics23_proof(&proof_bytes).unwrap();
+        
+        assert!(parsed_proof.proof.is_some());
+        assert!(parsed_proof.non_exist.is_none());
+        
+        let existence_proof = parsed_proof.proof.unwrap();
+        assert_eq!(existence_proof.key, vec![1, 2, 3, 4]);
+        assert_eq!(existence_proof.value, vec![5, 6, 7, 8]);
+        assert_eq!(existence_proof.leaf.hash, HashOp::Sha256);
+    }
+    
+    #[test]
+    fn test_verify_merkle_proof_with_invalid_proof() {
+        // Test that invalid proof bytes are handled gracefully
+        let root = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let key = b"test_key";
+        let value = b"test_value";
+        let invalid_proof = b"invalid_proof_bytes";
+        
+        let result = verify_merkle_proof(&root, key, Some(value), invalid_proof);
+        assert!(!result); // Should return false for invalid proof
+    }
+    
+    #[test]
+    fn test_iavl_spec_generation() {
+        let spec = get_iavl_spec();
+        
+        // Verify IAVL-specific settings
+        assert_eq!(spec.leaf_spec.hash, HashOp::Sha256);
+        assert_eq!(spec.leaf_spec.prehash_value, HashOp::Sha256);
+        assert_eq!(spec.leaf_spec.length, LengthOp::VarProto);
+        assert_eq!(spec.leaf_spec.prefix, vec![0]); // IAVL leaf prefix
+        
+        assert_eq!(spec.inner_spec.child_order, vec![0, 1]); // Binary tree
+        assert_eq!(spec.inner_spec.child_size, 32); // SHA-256 hash size
+        assert_eq!(spec.inner_spec.hash, HashOp::Sha256);
     }
 }
