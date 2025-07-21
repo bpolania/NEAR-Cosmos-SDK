@@ -9,7 +9,8 @@ This project recreates essential Cosmos modules without ABCI or Tendermint, incl
 - **Bank Module**: Fungible token balances with transfer and mint operations
 - **Staking Module**: Delegated tokens, validators, and unbonding periods
 - **Governance Module**: Parameter store and voting mechanism
-- **IBC Light Client**: Inter-Blockchain Communication via Tendermint light client
+- **IBC Light Client**: Inter-Blockchain Communication via Tendermint light client (ICS-07)
+- **IBC Connection Module**: Connection handshake protocol for cross-chain communication (ICS-03)
 
 All persistent state lives in NEAR's key-value store, namespaced by byte-prefixed keys that mirror Cosmos multistore paths.
 
@@ -101,13 +102,21 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 - Calls `BeginBlock` and `EndBlock` hooks for all modules
 - Designed for cron.cat integration for regular execution
 
-### IBC Light Client Module
+### IBC Light Client Module (ICS-07)
 - **07-tendermint Light Client**: Complete IBC light client implementation for cross-chain communication
 - **Client State Management**: Create and update Tendermint light clients with trust parameters
 - **Consensus State Tracking**: Store and retrieve consensus states at verified heights
 - **Cryptographic Verification**: Ed25519 signature verification and IAVL Merkle proof validation
 - **Cross-Chain Proofs**: Verify membership and non-membership of keys in counterparty state
 - **Production Ready**: Deployed and tested on NEAR testnet with comprehensive test coverage
+
+### IBC Connection Module (ICS-03)
+- **Connection Handshake**: Complete 4-step connection handshake protocol implementation
+- **State Management**: Connection state transitions (Uninitialized → Init → TryOpen → Open)
+- **Counterparty Information**: Store client IDs, connection IDs, and commitment prefixes
+- **Version Negotiation**: Support for connection version selection and feature negotiation
+- **Cross-Chain Authentication**: Establishes authenticated connections between NEAR and Cosmos chains
+- **Storage Optimization**: Efficient LookupMap-based storage with proper key prefixing
 
 ## Technical Implementation
 
@@ -135,6 +144,12 @@ cargo test
 - **🔐 Cryptographic Verification**: Ed25519 signatures, IAVL Merkle proofs, header validation
 - **📊 State Management**: Consensus states, client states, height tracking
 - **🔍 Proof Verification**: Membership and non-membership proof validation
+
+**IBC Connection Module (13 test cases, all passing):**
+- **🤝 Connection Handshake**: Full Init→Ack and Try→Confirm handshake flows
+- **🔄 State Transitions**: Connection state machine validation and error handling
+- **🆔 Connection Management**: Multiple connection support and connection ID generation
+- **⚠️ Error Handling**: Invalid state transition testing and edge case validation
 
 #### Test Environment
 - **Real NEAR Sandbox**: Tests run on actual NEAR blockchain environment

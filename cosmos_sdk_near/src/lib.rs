@@ -9,6 +9,8 @@ use modules::bank::BankModule;
 use modules::gov::GovernanceModule;
 use modules::staking::StakingModule;
 use modules::ibc::client::tendermint::{TendermintLightClientModule, Header, Height};
+use modules::ibc::connection::{ConnectionModule, ConnectionEnd, Counterparty, Version};
+use modules::ibc::connection::types::{MerklePrefix};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -17,6 +19,7 @@ pub struct CosmosContract {
     staking_module: StakingModule,
     governance_module: GovernanceModule,
     ibc_client_module: TendermintLightClientModule,
+    ibc_connection_module: ConnectionModule,
     block_height: u64,
 }
 
@@ -29,6 +32,7 @@ impl CosmosContract {
             staking_module: StakingModule::new(),
             governance_module: GovernanceModule::new(),
             ibc_client_module: TendermintLightClientModule::new(),
+            ibc_connection_module: ConnectionModule::new(),
             block_height: 0,
         }
     }
@@ -150,6 +154,113 @@ impl CosmosContract {
 
     pub fn ibc_prune_expired_consensus_state(&mut self, client_id: String, height: u64) -> bool {
         self.ibc_client_module.prune_expired_consensus_state(client_id, height)
+    }
+
+    // IBC Connection Module Functions
+    pub fn ibc_conn_open_init(
+        &mut self,
+        client_id: String,
+        counterparty_client_id: String,
+        counterparty_prefix: Option<Vec<u8>>,
+        version: Option<Version>,
+        delay_period: u64,
+    ) -> String {
+        let prefix = counterparty_prefix.unwrap_or_else(|| b"ibc".to_vec());
+        let counterparty = Counterparty::new(
+            counterparty_client_id,
+            None,
+            MerklePrefix::new(prefix),
+        );
+        
+        self.ibc_connection_module.conn_open_init(
+            client_id,
+            counterparty,
+            version,
+            delay_period,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_conn_open_try(
+        &mut self,
+        previous_connection_id: Option<String>,
+        counterparty_client_id: String,
+        counterparty_connection_id: String,
+        counterparty_prefix: Option<Vec<u8>>,
+        delay_period: u64,
+        client_id: String,
+        client_state_proof: Vec<u8>,
+        consensus_state_proof: Vec<u8>,
+        connection_proof: Vec<u8>,
+        proof_height: u64,
+        version: Version,
+    ) -> Result<String, String> {
+        let prefix = counterparty_prefix.unwrap_or_else(|| b"ibc".to_vec());
+        let counterparty = Counterparty::new(
+            counterparty_client_id,
+            Some(counterparty_connection_id),
+            MerklePrefix::new(prefix),
+        );
+
+        self.ibc_connection_module.conn_open_try(
+            previous_connection_id,
+            counterparty,
+            delay_period,
+            client_id,
+            client_state_proof,
+            consensus_state_proof,
+            connection_proof,
+            proof_height,
+            version,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_conn_open_ack(
+        &mut self,
+        connection_id: String,
+        counterparty_connection_id: String,
+        version: Version,
+        client_state_proof: Vec<u8>,
+        connection_proof: Vec<u8>,
+        consensus_state_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        self.ibc_connection_module.conn_open_ack(
+            connection_id,
+            counterparty_connection_id,
+            version,
+            client_state_proof,
+            connection_proof,
+            consensus_state_proof,
+            proof_height,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_conn_open_confirm(
+        &mut self,
+        connection_id: String,
+        connection_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        self.ibc_connection_module.conn_open_confirm(
+            connection_id,
+            connection_proof,
+            proof_height,
+        )
+    }
+
+    pub fn ibc_get_connection(&self, connection_id: String) -> Option<ConnectionEnd> {
+        self.ibc_connection_module.get_connection(connection_id)
+    }
+
+    pub fn ibc_get_connection_ids(&self) -> Vec<String> {
+        self.ibc_connection_module.get_connection_ids()
+    }
+
+    pub fn ibc_is_connection_open(&self, connection_id: String) -> bool {
+        self.ibc_connection_module.is_connection_open(&connection_id)
     }
 
     // View functions
