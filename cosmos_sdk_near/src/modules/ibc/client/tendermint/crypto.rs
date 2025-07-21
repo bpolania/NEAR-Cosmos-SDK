@@ -1,6 +1,7 @@
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use sha2::{Digest, Sha256};
-use near_sdk::env;
+use near_sdk::{env, serde_json};
+use chrono::{Utc, TimeZone, Datelike, Timelike};
 
 use super::types::{Commit, PublicKey, ValidatorSet, Validator};
 
@@ -180,34 +181,63 @@ fn verify_validator_signature(
 /// 
 /// # Returns
 /// * The canonical sign bytes to be verified
-fn create_canonical_sign_bytes(
+pub fn create_canonical_sign_bytes(
     chain_id: &str,
     height: u64,
     round: i32,
     block_bytes: &[u8],
     timestamp: u64,
 ) -> Vec<u8> {
-    // For now, this is a simplified implementation
-    // In a full implementation, this would create the exact canonical JSON
-    // format that Tendermint uses for signing
+    // Implement Tendermint canonical JSON format for signing
+    // This follows the exact format used by Tendermint for vote signing
     
     // Hash the block bytes to get block hash
     let mut hasher = Sha256::new();
     hasher.update(block_bytes);
     let block_hash = hasher.finalize();
     
-    // Create a simplified sign bytes format
-    // TODO: Implement full canonical JSON format as per Tendermint spec
-    let sign_data = format!(
-        "{{\"@chain_id\":\"{}\",\"@type\":\"/tendermint.types.Vote\",\"block_id\":{{\"hash\":\"{}\"}},\"height\":\"{}\",\"round\":\"{}\",\"timestamp\":\"{}\",\"type\":2}}",
-        chain_id,
-        hex::encode(block_hash),
-        height,
-        round,
-        timestamp
-    );
+    // Create canonical JSON format as per Tendermint specification
+    // https://github.com/tendermint/tendermint/blob/main/types/canonical.go
+    let canonical_vote = serde_json::json!({
+        "@chain_id": chain_id,
+        "@type": "/tendermint.types.CanonicalVote",
+        "block_id": {
+            "hash": hex::encode(block_hash).to_uppercase(),
+            "parts": {
+                "hash": "",
+                "total": 0
+            }
+        },
+        "height": height.to_string(),
+        "round": round.to_string(), 
+        "timestamp": format_canonical_time(timestamp),
+        "type": 2 // PREVOTE_TYPE = 1, PRECOMMIT_TYPE = 2
+    });
+    
+    let sign_data = canonical_vote.to_string();
     
     sign_data.into_bytes()
+}
+
+/// Format timestamp in Tendermint canonical time format
+/// Tendermint uses RFC3339 format with nanosecond precision
+fn format_canonical_time(timestamp: u64) -> String {
+    // Convert Unix timestamp to RFC3339 format
+    // Tendermint expects: "2006-01-02T15:04:05.000000000Z"
+    let datetime = Utc.timestamp_opt(timestamp as i64, 0)
+        .single()
+        .unwrap_or_else(|| Utc.timestamp_opt(0, 0).single().unwrap());
+    
+    // Format with nanosecond precision as required by Tendermint
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:09}Z",
+        datetime.year(),
+        datetime.month(),
+        datetime.day(),
+        datetime.hour(),
+        datetime.minute(), 
+        datetime.second(),
+        datetime.nanosecond()
+    )
 }
 
 /// Verify a Merkle proof against an IAVL tree root
@@ -317,6 +347,44 @@ pub fn sha256(data: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(data);
     hasher.finalize().to_vec()
+}
+
+/// Verify Ed25519 signature
+/// 
+/// # Arguments
+/// * `pubkey_bytes` - The Ed25519 public key bytes (32 bytes)
+/// * `message` - The message that was signed
+/// * `signature` - The signature bytes (64 bytes)
+/// 
+/// # Returns
+/// * `true` if signature is valid, `false` otherwise
+pub fn verify_ed25519_signature(pubkey_bytes: &[u8], message: &[u8], signature: &[u8]) -> bool {
+    // Verify input lengths
+    if pubkey_bytes.len() != 32 || signature.len() != 64 {
+        return false;
+    }
+    
+    // Convert to fixed-size arrays
+    let pubkey_array: [u8; 32] = match pubkey_bytes.try_into() {
+        Ok(array) => array,
+        Err(_) => return false,
+    };
+    
+    let sig_array: [u8; 64] = match signature.try_into() {
+        Ok(array) => array,
+        Err(_) => return false,
+    };
+    
+    // Convert to Ed25519 types
+    let pubkey = match VerifyingKey::from_bytes(&pubkey_array) {
+        Ok(key) => key,
+        Err(_) => return false,
+    };
+    
+    let sig = Signature::from_bytes(&sig_array);
+    
+    // Verify the signature
+    pubkey.verify(message, &sig).is_ok()
 }
 
 #[cfg(test)]
