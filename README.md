@@ -1,6 +1,6 @@
 # Cosmos-on-NEAR
 
-A Cosmos-inspired application-layer runtime implemented as NEAR smart contracts using Rust and the official NEAR SDK.
+A Cosmos SDK runtime implemented as NEAR smart contracts using Rust and the official NEAR SDK.
 
 ## Overview
 
