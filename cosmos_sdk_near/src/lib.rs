@@ -11,6 +11,8 @@ use modules::staking::StakingModule;
 use modules::ibc::client::tendermint::{TendermintLightClientModule, Header, Height};
 use modules::ibc::connection::{ConnectionModule, ConnectionEnd, Counterparty, Version};
 use modules::ibc::connection::types::{MerklePrefix};
+use modules::ibc::channel::{ChannelModule, ChannelEnd, Order, Packet, Acknowledgement};
+use modules::ibc::channel::types::{PacketCommitment, PacketReceipt};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -20,6 +22,7 @@ pub struct CosmosContract {
     governance_module: GovernanceModule,
     ibc_client_module: TendermintLightClientModule,
     ibc_connection_module: ConnectionModule,
+    ibc_channel_module: ChannelModule,
     block_height: u64,
 }
 
@@ -33,6 +36,7 @@ impl CosmosContract {
             governance_module: GovernanceModule::new(),
             ibc_client_module: TendermintLightClientModule::new(),
             ibc_connection_module: ConnectionModule::new(),
+            ibc_channel_module: ChannelModule::new(),
             block_height: 0,
         }
     }
@@ -261,6 +265,227 @@ impl CosmosContract {
 
     pub fn ibc_is_connection_open(&self, connection_id: String) -> bool {
         self.ibc_connection_module.is_connection_open(&connection_id)
+    }
+
+    // IBC Channel Module Functions
+    pub fn ibc_chan_open_init(
+        &mut self,
+        port_id: String,
+        order: u8, // 0 = Unordered, 1 = Ordered
+        connection_hops: Vec<String>,
+        counterparty_port_id: String,
+        version: String,
+    ) -> String {
+        let channel_order = if order == 1 { Order::Ordered } else { Order::Unordered };
+        
+        self.ibc_channel_module.chan_open_init(
+            port_id,
+            channel_order,
+            connection_hops,
+            counterparty_port_id,
+            version,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_chan_open_try(
+        &mut self,
+        port_id: String,
+        previous_channel_id: Option<String>,
+        order: u8, // 0 = Unordered, 1 = Ordered
+        connection_hops: Vec<String>,
+        counterparty_port_id: String,
+        counterparty_channel_id: String,
+        version: String,
+        counterparty_version: String,
+        channel_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<String, String> {
+        let channel_order = if order == 1 { Order::Ordered } else { Order::Unordered };
+        
+        self.ibc_channel_module.chan_open_try(
+            port_id,
+            previous_channel_id,
+            channel_order,
+            connection_hops,
+            counterparty_port_id,
+            counterparty_channel_id,
+            version,
+            counterparty_version,
+            channel_proof,
+            proof_height,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_chan_open_ack(
+        &mut self,
+        port_id: String,
+        channel_id: String,
+        counterparty_channel_id: String,
+        counterparty_version: String,
+        channel_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        self.ibc_channel_module.chan_open_ack(
+            port_id,
+            channel_id,
+            counterparty_channel_id,
+            counterparty_version,
+            channel_proof,
+            proof_height,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_chan_open_confirm(
+        &mut self,
+        port_id: String,
+        channel_id: String,
+        channel_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        self.ibc_channel_module.chan_open_confirm(
+            port_id,
+            channel_id,
+            channel_proof,
+            proof_height,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_send_packet(
+        &mut self,
+        source_port: String,
+        source_channel: String,
+        timeout_height_revision: u64,
+        timeout_height_value: u64,
+        timeout_timestamp: u64,
+        data: Vec<u8>,
+    ) -> Result<u64, String> {
+        let timeout_height = modules::ibc::channel::Height::new(timeout_height_revision, timeout_height_value);
+        
+        self.ibc_channel_module.send_packet(
+            source_port,
+            source_channel,
+            timeout_height,
+            timeout_timestamp,
+            data,
+        )
+    }
+
+    #[handle_result]
+    pub fn ibc_recv_packet(
+        &mut self,
+        sequence: u64,
+        source_port: String,
+        source_channel: String,
+        destination_port: String,
+        destination_channel: String,
+        data: Vec<u8>,
+        timeout_height_revision: u64,
+        timeout_height_value: u64,
+        timeout_timestamp: u64,
+        packet_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        let timeout_height = modules::ibc::channel::Height::new(timeout_height_revision, timeout_height_value);
+        
+        let packet = Packet::new(
+            sequence,
+            source_port,
+            source_channel,
+            destination_port,
+            destination_channel,
+            data,
+            timeout_height,
+            timeout_timestamp,
+        );
+
+        self.ibc_channel_module.recv_packet(packet, packet_proof, proof_height)
+    }
+
+    #[handle_result]
+    pub fn ibc_acknowledge_packet(
+        &mut self,
+        sequence: u64,
+        source_port: String,
+        source_channel: String,
+        destination_port: String,
+        destination_channel: String,
+        data: Vec<u8>,
+        timeout_height_revision: u64,
+        timeout_height_value: u64,
+        timeout_timestamp: u64,
+        acknowledgement_data: Vec<u8>,
+        ack_proof: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        let timeout_height = modules::ibc::channel::Height::new(timeout_height_revision, timeout_height_value);
+        
+        let packet = Packet::new(
+            sequence,
+            source_port,
+            source_channel,
+            destination_port,
+            destination_channel,
+            data,
+            timeout_height,
+            timeout_timestamp,
+        );
+
+        let acknowledgement = Acknowledgement::new(acknowledgement_data);
+
+        self.ibc_channel_module.acknowledge_packet(packet, acknowledgement, ack_proof, proof_height)
+    }
+
+    pub fn ibc_get_channel(&self, port_id: String, channel_id: String) -> Option<ChannelEnd> {
+        self.ibc_channel_module.get_channel(port_id, channel_id)
+    }
+
+    pub fn ibc_is_channel_open(&self, port_id: String, channel_id: String) -> bool {
+        self.ibc_channel_module.is_channel_open(&port_id, &channel_id)
+    }
+
+    pub fn ibc_get_next_sequence_send(&self, port_id: String, channel_id: String) -> u64 {
+        self.ibc_channel_module.get_next_sequence_send(&port_id, &channel_id)
+    }
+
+    pub fn ibc_get_next_sequence_recv(&self, port_id: String, channel_id: String) -> u64 {
+        self.ibc_channel_module.get_next_sequence_recv(&port_id, &channel_id)
+    }
+
+    pub fn ibc_get_packet_commitment(&self, port_id: String, channel_id: String, sequence: u64) -> Option<PacketCommitment> {
+        self.ibc_channel_module.get_packet_commitment(&port_id, &channel_id, sequence)
+    }
+
+    pub fn ibc_get_packet_receipt(&self, port_id: String, channel_id: String, sequence: u64) -> Option<PacketReceipt> {
+        self.ibc_channel_module.get_packet_receipt(&port_id, &channel_id, sequence)
+    }
+
+    pub fn ibc_get_packet_acknowledgement(&self, port_id: String, channel_id: String, sequence: u64) -> Option<Acknowledgement> {
+        self.ibc_channel_module.get_packet_acknowledgement(&port_id, &channel_id, sequence)
+    }
+
+    pub fn ibc_create_success_acknowledgement(&self, result: Vec<u8>) -> Acknowledgement {
+        self.ibc_channel_module.create_success_acknowledgement(result)
+    }
+
+    pub fn ibc_create_error_acknowledgement(&self, error: String) -> Acknowledgement {
+        self.ibc_channel_module.create_error_acknowledgement(error)
+    }
+
+    pub fn ibc_is_acknowledgement_success(&self, ack: Acknowledgement) -> bool {
+        self.ibc_channel_module.is_acknowledgement_success(&ack)
+    }
+
+    pub fn ibc_create_packet_commitment(&self, data: Vec<u8>) -> PacketCommitment {
+        self.ibc_channel_module.create_packet_commitment(data)
+    }
+
+    pub fn ibc_is_timeout_height_zero(&self, height_revision: u64, height_value: u64) -> bool {
+        let height = modules::ibc::channel::types::Height::new(height_revision, height_value);
+        self.ibc_channel_module.is_timeout_height_zero(&height)
     }
 
     // View functions
