@@ -214,6 +214,19 @@ The unified contract is ready for:
 
 The core architecture follows proper Cosmos SDK conventions with all modules unified in a single contract, making this a robust and properly structured Cosmos runtime for NEAR Protocol with cross-chain capabilities.
 
+## Next Steps
+
+### Relayer Development
+To enable full cross-chain functionality, the next critical step is developing a stable IBC relayer that can:
+
+- **Bridge NEAR and Cosmos chains**: Relay packets between the NEAR-based Cosmos SDK and native Cosmos chains
+- **Handle client updates**: Automatically update light clients on both sides with new headers
+- **Process IBC packets**: Listen for packet events and relay them across chains with proper proof generation
+- **Support multiple channels**: Manage concurrent IBC channels for different applications (ICS-20 token transfers, custom protocols)
+- **Ensure reliability**: Implement retry logic, error handling, and monitoring for production-grade cross-chain communication
+
+The relayer is essential for enabling real-world IBC applications like cross-chain token transfers and custom inter-blockchain protocols.
+
 ## DEPLOYMENT STATUS
 
 **Previous Deployments (Legacy Structure):**
