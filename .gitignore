@@ -43,3 +43,6 @@ Thumbs.db
 .env.local
 .env.production
 .env.development
+
+# Claude Code session files
+.claude/
