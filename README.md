@@ -87,14 +87,30 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 ## Technical Implementation
 
 ### Testing Strategy
-The contract has been thoroughly tested on NEAR testnet with all modules functioning correctly:
+The contract includes comprehensive integration testing using [near-workspaces](https://github.com/near/workspaces-rs) - the Rust equivalent of Hardhat for NEAR contracts.
 
-- ✅ Bank Module: Transfer and minting operations
-- ✅ Staking Module: Validator registration, delegation, and rewards
-- ✅ Governance Module: Proposal submission and voting
-- ✅ Block Processing: Cross-module integration and state management
+#### Automated Integration Tests
+Run the complete test suite with:
+```bash
+cd cosmos_on_near_rust
+cargo test
+```
 
-For integration testing, consider using [near-workspaces](https://github.com/near/workspaces-rs) - the Rust equivalent of Hardhat for NEAR contracts.
+**Test Coverage (12 test cases, all passing):**
+- **🏦 Bank Module**: Token minting, transfers, balance validation, error handling
+- **🥩 Staking Module**: Validator management, delegation, undelegation, reward distribution
+- **🏛️ Governance Module**: Proposal submission, voting, parameter management
+- **⏰ Block Processing**: Single and multiple block advancement with cross-module integration
+- **🔗 End-to-End**: Complete multi-module workflow with realistic reward calculations
+
+#### Test Environment
+- **Real NEAR Sandbox**: Tests run on actual NEAR blockchain environment
+- **Embedded Contract**: Uses compiled WASM for authentic testing
+- **State Validation**: Verifies all balance changes, delegations, and governance state
+- **Error Testing**: Includes negative test cases for proper error handling
+
+#### Production Validation
+The contract has also been successfully tested on live NEAR testnet with all modules functioning correctly on `demo.cuteharbor3573.testnet`.
 
 ## NEAR Gas Considerations
 
