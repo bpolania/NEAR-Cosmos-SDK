@@ -379,6 +379,58 @@ impl TendermintLightClientModule {
         crypto::verify_compressed_batch_merkle_proof(&consensus_state.root, &items_refs, &proof)
     }
 
+    /// Verify a range of consecutive keys efficiently using range proofs
+    /// 
+    /// This function provides significant performance improvements when verifying
+    /// consecutive keys like packet sequences or sequential state updates.
+    /// 
+    /// # Arguments
+    /// * `client_id` - The client ID for the consensus state
+    /// * `height` - The height to verify against
+    /// * `start_key` - The starting key of the range (inclusive)
+    /// * `end_key` - The ending key of the range (inclusive) 
+    /// * `existence` - True if proving all keys exist, false if proving none exist
+    /// * `expected_values` - Vector of (key, value) pairs for existence proofs
+    /// * `proof` - The range proof bytes
+    /// 
+    /// # Returns
+    /// * True if the range proof is valid
+    pub fn verify_range_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        start_key: Vec<u8>,
+        end_key: Vec<u8>,
+        existence: bool,
+        expected_values: Vec<(Vec<u8>, Vec<u8>)>,
+        proof: Vec<u8>,
+    ) -> bool {
+        // Get consensus state at the specified height
+        let consensus_key = format!("{}#{}", client_id, height);
+        let consensus_state = match self.consensus_states.get(&consensus_key) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Consensus state not found for height {}", height));
+                return false;
+            }
+        };
+
+        // Convert Vec values to slice format for crypto function
+        let expected_refs: Vec<(&[u8], &[u8])> = expected_values.iter()
+            .map(|(k, v)| (k.as_slice(), v.as_slice()))
+            .collect();
+
+        // Verify the range proof against the consensus state root
+        crypto::verify_range_merkle_proof(
+            &consensus_state.root,
+            &start_key,
+            &end_key,
+            existence,
+            &expected_refs,
+            &proof
+        )
+    }
+
     /// Get the current state of a light client
     /// 
     /// # Arguments

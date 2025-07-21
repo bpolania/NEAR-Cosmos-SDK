@@ -1,6 +1,7 @@
 use anyhow::Result;
 use near_workspaces::{types::NearToken, Account, Contract, Worker};
 use serde_json::json;
+use tokio::time::{sleep, Duration};
 
 const COSMOS_SDK_NEAR_WASM: &[u8] = include_bytes!("../target/near/cosmos_sdk_near.wasm");
 
@@ -149,6 +150,8 @@ mod light_client_tests {
         let client_id: String = result.json()?;
         assert!(client_id.starts_with("07-tendermint-"));
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -191,6 +194,8 @@ mod light_client_tests {
         assert_eq!(state["trust_period"], 86400);
         assert_eq!(state["unbonding_period"], 1814400);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -233,6 +238,8 @@ mod light_client_tests {
         assert_eq!(state["timestamp"], 1640995200);
         assert!(!state["root"].as_array().unwrap().is_empty());
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -274,13 +281,15 @@ mod light_client_tests {
         assert_eq!(h["revision_number"], 0);
         assert_eq!(h["revision_height"], 100);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
     #[tokio::test]
     async fn test_update_client_basic() -> Result<()> {
         // Add delay to avoid port conflicts with other test files
-        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+        sleep(Duration::from_millis(300)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;
@@ -379,6 +388,8 @@ mod light_client_tests {
         let success: bool = update_result.json()?;
         assert!(!success); // Should return false for invalid update
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -447,6 +458,8 @@ mod light_client_tests {
         // but the important thing is that it parses the proof correctly
         println!("ICS-23 proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -523,13 +536,15 @@ mod light_client_tests {
         // but the important thing is that it parses the non-membership proof correctly
         println!("ICS-23 non-membership proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
     #[tokio::test]
     async fn test_multiple_clients() -> Result<()> {
         // Add delay to avoid port conflicts with other test files
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        sleep(Duration::from_millis(500)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;
@@ -706,6 +721,8 @@ mod light_client_tests {
         let result: bool = verify_result.json()?;
         println!("Batch proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -853,6 +870,8 @@ mod light_client_tests {
         let result: bool = verify_result.json()?;
         println!("Mixed batch proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -990,6 +1009,8 @@ mod light_client_tests {
         let result: bool = verify_result.json()?;
         println!("Compressed batch proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -1041,6 +1062,8 @@ mod light_client_tests {
         let result: bool = verify_result.json()?;
         println!("Empty batch proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -1090,6 +1113,8 @@ mod light_client_tests {
         assert!(!result); // Should return false for non-existent client
         println!("Invalid client batch proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -1157,6 +1182,8 @@ mod light_client_tests {
         assert!(!result); // Should return false for non-existent height
         println!("Invalid height batch proof verification result: {}", result);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -1238,6 +1265,360 @@ mod light_client_tests {
         // Performance should be reasonable for batch operations
         assert!(duration.as_secs() < 5, "Batch verification took too long: {:?}", duration);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_verify_range_membership_existence() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a range proof for consecutive packet keys (existence)
+        let range_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": null,
+            "compressed": null,
+            "range": {
+                "start_key": [112, 97, 99, 107, 101, 116, 115, 47, 49], // "packets/1"
+                "end_key": [112, 97, 99, 107, 101, 116, 115, 47, 51], // "packets/3"
+                "existence": true,
+                "left_boundary": null,
+                "right_boundary": null,
+                "key_proofs": [
+                    {
+                        "key": [112, 97, 99, 107, 101, 116, 115, 47, 49], // "packets/1"
+                        "value": [100, 97, 116, 97, 49], // "data1"
+                        "leaf": {
+                            "hash": "Sha256",
+                            "prehash_key": "NoHash",
+                            "prehash_value": "Sha256",
+                            "length": "VarProto",
+                            "prefix": [0]
+                        },
+                        "path": []
+                    },
+                    {
+                        "key": [112, 97, 99, 107, 101, 116, 115, 47, 50], // "packets/2"
+                        "value": [100, 97, 116, 97, 50], // "data2"
+                        "leaf": {
+                            "hash": "Sha256",
+                            "prehash_key": "NoHash",
+                            "prehash_value": "Sha256",
+                            "length": "VarProto",
+                            "prefix": [0]
+                        },
+                        "path": []
+                    },
+                    {
+                        "key": [112, 97, 99, 107, 101, 116, 115, 47, 51], // "packets/3"
+                        "value": [100, 97, 116, 97, 51], // "data3"
+                        "leaf": {
+                            "hash": "Sha256",
+                            "prehash_key": "NoHash",
+                            "prehash_value": "Sha256",
+                            "length": "VarProto",
+                            "prefix": [0]
+                        },
+                        "path": []
+                    }
+                ],
+                "shared_path": []
+            }
+        });
+
+        // Test range verification for consecutive packet sequence
+        let start_key = [112, 97, 99, 107, 101, 116, 115, 47, 49]; // "packets/1"
+        let end_key = [112, 97, 99, 107, 101, 116, 115, 47, 51]; // "packets/3"
+        let expected_values = vec![
+            ([112, 97, 99, 107, 101, 116, 115, 47, 49], [100, 97, 116, 97, 49]), // "packets/1" -> "data1"
+            ([112, 97, 99, 107, 101, 116, 115, 47, 50], [100, 97, 116, 97, 50]), // "packets/2" -> "data2"
+            ([112, 97, 99, 107, 101, 116, 115, 47, 51], [100, 97, 116, 97, 51])  // "packets/3" -> "data3"
+        ];
+
+        let verify_result = contract
+            .view("ibc_verify_range_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "start_key": start_key,
+                "end_key": end_key,
+                "existence": true,
+                "expected_values": expected_values,
+                "proof": serde_json::to_vec(&range_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        println!("Range existence proof verification result: {}", result);
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_verify_range_membership_non_existence() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a range proof for non-existence (gap in packet sequence)
+        let range_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": null,
+            "compressed": null,
+            "range": {
+                "start_key": [112, 97, 99, 107, 101, 116, 115, 47, 53], // "packets/5"
+                "end_key": [112, 97, 99, 107, 101, 116, 115, 47, 55], // "packets/7"
+                "existence": false,
+                "left_boundary": {
+                    "key": [112, 97, 99, 107, 101, 116, 115, 47, 52], // "packets/4"
+                    "value": [100, 97, 116, 97, 52], // "data4"
+                    "leaf": {
+                        "hash": "Sha256",
+                        "prehash_key": "NoHash",
+                        "prehash_value": "Sha256",
+                        "length": "VarProto",
+                        "prefix": [0]
+                    },
+                    "path": []
+                },
+                "right_boundary": {
+                    "key": [112, 97, 99, 107, 101, 116, 115, 47, 56], // "packets/8"
+                    "value": [100, 97, 116, 97, 56], // "data8"
+                    "leaf": {
+                        "hash": "Sha256",
+                        "prehash_key": "NoHash",
+                        "prehash_value": "Sha256",
+                        "length": "VarProto",
+                        "prefix": [0]
+                    },
+                    "path": []
+                },
+                "key_proofs": [],
+                "shared_path": []
+            }
+        });
+
+        // Test range verification for non-existence (proving gap in sequence)
+        let start_key = [112, 97, 99, 107, 101, 116, 115, 47, 53]; // "packets/5"
+        let end_key = [112, 97, 99, 107, 101, 116, 115, 47, 55]; // "packets/7"
+        let expected_values: Vec<(Vec<u8>, Vec<u8>)> = vec![]; // No values for non-existence
+
+        let verify_result = contract
+            .view("ibc_verify_range_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "start_key": start_key,
+                "end_key": end_key,
+                "existence": false,
+                "expected_values": expected_values,
+                "proof": serde_json::to_vec(&range_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        println!("Range non-existence proof verification result: {}", result);
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_verify_range_membership_invalid_range() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        let range_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": null,
+            "compressed": null,
+            "range": {
+                "start_key": [112, 97, 99, 107, 101, 116, 115, 47, 53], // "packets/5"
+                "end_key": [112, 97, 99, 107, 101, 116, 115, 47, 51], // "packets/3" - invalid!
+                "existence": true,
+                "left_boundary": null,
+                "right_boundary": null,
+                "key_proofs": [],
+                "shared_path": []
+            }
+        });
+
+        // Test with invalid range (start_key > end_key)
+        let start_key = [112, 97, 99, 107, 101, 116, 115, 47, 53]; // "packets/5"
+        let end_key = [112, 97, 99, 107, 101, 116, 115, 47, 51]; // "packets/3" - smaller than start!
+        let expected_values: Vec<(Vec<u8>, Vec<u8>)> = vec![];
+
+        let verify_result = contract
+            .view("ibc_verify_range_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "start_key": start_key,
+                "end_key": end_key,
+                "existence": true,
+                "expected_values": expected_values,
+                "proof": serde_json::to_vec(&range_proof).unwrap()
+            }))
+            .await?;
+
+        let result: bool = verify_result.json()?;
+        assert!(!result); // Should return false for invalid range
+        println!("Invalid range proof verification result: {}", result);
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_range_proof_performance() -> Result<()> {
+        let worker = near_workspaces::sandbox().await?;
+        let contract = deploy_cosmos_contract(&worker).await?;
+        let user = create_test_account(&worker, "user").await?;
+
+        let header = create_sample_header();
+
+        // Create client first
+        let create_result = user
+            .call(contract.id(), "ibc_create_client")
+            .args_json(json!({
+                "chain_id": "test-chain-1",
+                "trust_period": 86400,
+                "unbonding_period": 1814400,
+                "max_clock_drift": 600,
+                "initial_header": header
+            }))
+            .transact()
+            .await?;
+
+        let client_id: String = create_result.json()?;
+
+        // Create a large range proof with 20 consecutive keys
+        let mut key_proofs = vec![];
+        let mut expected_values = vec![];
+        
+        for i in 1..=20 {
+            let key = format!("packets/{}", i).into_bytes();
+            let value = format!("data{}", i).into_bytes();
+            
+            key_proofs.push(json!({
+                "key": key,
+                "value": value,
+                "leaf": {
+                    "hash": "Sha256",
+                    "prehash_key": "NoHash",
+                    "prehash_value": "Sha256",
+                    "length": "VarProto",
+                    "prefix": [0]
+                },
+                "path": []
+            }));
+            
+            expected_values.push((key, value));
+        }
+
+        let range_proof = json!({
+            "proof": null,
+            "non_exist": null,
+            "batch": null,
+            "compressed": null,
+            "range": {
+                "start_key": b"packets/1".to_vec(),
+                "end_key": b"packets/20".to_vec(),
+                "existence": true,
+                "left_boundary": null,
+                "right_boundary": null,
+                "key_proofs": key_proofs,
+                "shared_path": []
+            }
+        });
+
+        let start = std::time::Instant::now();
+        
+        let verify_result = contract
+            .view("ibc_verify_range_membership")
+            .args_json(json!({
+                "client_id": client_id,
+                "height": 100,
+                "start_key": b"packets/1".to_vec(),
+                "end_key": b"packets/20".to_vec(),
+                "existence": true,
+                "expected_values": expected_values,
+                "proof": serde_json::to_vec(&range_proof).unwrap()
+            }))
+            .await?;
+
+        let duration = start.elapsed();
+        let result: bool = verify_result.json()?;
+        
+        println!("Large range (20 keys) verification took: {:?}, result: {}", duration, result);
+        
+        // Performance should be reasonable for range operations
+        assert!(duration.as_secs() < 10, "Range verification took too long: {:?}", duration);
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(200)).await;
         Ok(())
     }
 }

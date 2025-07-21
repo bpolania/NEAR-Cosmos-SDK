@@ -481,6 +481,46 @@ pub fn verify_compressed_batch_merkle_proof(
     proof.verify_compressed_batch(&spec, root, items)
 }
 
+/// Verify a range proof for consecutive keys
+/// 
+/// This function efficiently verifies that all keys in a consecutive range either
+/// exist with expected values or don't exist at all. Commonly used for verifying
+/// packet sequences or consecutive state updates.
+/// 
+/// # Arguments
+/// * `root` - The IAVL tree root hash
+/// * `start_key` - The starting key of the range (inclusive)
+/// * `end_key` - The ending key of the range (inclusive)
+/// * `existence` - True if proving all keys exist, false if proving none exist
+/// * `expected_values` - Expected (key, value) pairs for existence proofs
+/// * `proof_bytes` - The ICS-23 formatted range proof bytes
+/// 
+/// # Returns
+/// * True if the range proof is valid, false otherwise
+pub fn verify_range_merkle_proof(
+    root: &[u8],
+    start_key: &[u8],
+    end_key: &[u8],
+    existence: bool,
+    expected_values: &[(&[u8], &[u8])],
+    proof_bytes: &[u8],
+) -> bool {
+    // Parse the ICS-23 range proof from bytes
+    let proof = match parse_ics23_proof(proof_bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            env::log_str(&format!("Failed to parse ICS-23 range proof: {}", e));
+            return false;
+        }
+    };
+
+    // Get the appropriate proof specification for IAVL/Tendermint
+    let spec = get_iavl_spec();
+    
+    // Verify range proof
+    proof.verify_range(&spec, root, start_key, end_key, existence, expected_values)
+}
+
 /// Parse ICS-23 proof from bytes
 /// 
 /// This function deserializes the ICS-23 proof structure from bytes.

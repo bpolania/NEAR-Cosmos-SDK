@@ -1,6 +1,7 @@
 use anyhow::Result;
 use near_workspaces::{types::NearToken, Account, Contract, Worker};
 use serde_json::json;
+use tokio::time::{sleep, Duration};
 
 const COSMOS_CONTRACT_WASM: &[u8] = include_bytes!("../target/near/cosmos_sdk_near.wasm");
 
@@ -35,7 +36,7 @@ async fn create_test_account(worker: &Worker<near_workspaces::network::Sandbox>,
 #[tokio::test]
 async fn test_full_cosmos_workflow() -> Result<()> {
     // Add delay to avoid port conflicts with other test files
-    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    sleep(Duration::from_millis(500)).await;
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_cosmos_contract(&worker).await?;
     

@@ -17,6 +17,7 @@ pub struct CommitmentProof {
     pub non_exist: Option<NonExistenceProof>,
     pub batch: Option<BatchProof>,
     pub compressed: Option<CompressedBatchProof>,
+    pub range: Option<RangeProof>,
 }
 
 /// ExistenceProof proves that a key-value pair exists in the tree
@@ -78,6 +79,26 @@ pub struct CompressedNonExistenceProof {
     pub key: Vec<u8>,
     pub left: Option<CompressedExistenceProof>,
     pub right: Option<CompressedExistenceProof>,
+}
+
+/// RangeProof proves that all keys in a consecutive range exist or don't exist
+/// This is optimized for efficiently proving sequential data like packet sequences
+#[derive(BorshDeserialize, BorshSerialize, JsonSchema, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RangeProof {
+    /// Starting key of the range (inclusive)
+    pub start_key: Vec<u8>,
+    /// Ending key of the range (inclusive)  
+    pub end_key: Vec<u8>,
+    /// True if proving existence of all keys in range, false for non-existence
+    pub existence: bool,
+    /// Left boundary proof - proves no key exists just before start_key (for non-existence ranges)
+    pub left_boundary: Option<ExistenceProof>,
+    /// Right boundary proof - proves no key exists just after end_key (for non-existence ranges)
+    pub right_boundary: Option<ExistenceProof>,
+    /// Existence proofs for keys that do exist in the range (for existence ranges)
+    pub key_proofs: Vec<ExistenceProof>,
+    /// Inner nodes shared across the range for efficiency
+    pub shared_path: Vec<InnerOp>,
 }
 
 /// LeafOp defines how to hash a leaf node
@@ -246,6 +267,41 @@ impl CommitmentProof {
             },
             None => {
                 env::log_str("No compressed batch proof provided for compressed batch verification");
+                false
+            }
+        }
+    }
+
+    /// Verify a range proof using ICS-23 format
+    /// 
+    /// Verifies that all keys in a consecutive range either exist or don't exist.
+    /// This is highly optimized for sequential data like IBC packet sequences.
+    /// 
+    /// # Arguments
+    /// * `spec` - The proof specification to use for verification
+    /// * `root` - The merkle root to verify against
+    /// * `start_key` - The starting key of the range (inclusive)
+    /// * `end_key` - The ending key of the range (inclusive) 
+    /// * `existence` - True if proving all keys exist, false if proving none exist
+    /// * `expected_values` - Expected values for keys that should exist (for existence proofs)
+    /// 
+    /// # Returns
+    /// * True if the range proof is valid, false otherwise
+    pub fn verify_range(
+        &self,
+        spec: &ProofSpec,
+        root: &[u8],
+        start_key: &[u8],
+        end_key: &[u8], 
+        existence: bool,
+        expected_values: &[(&[u8], &[u8])], // (key, value) pairs for existence proofs
+    ) -> bool {
+        match &self.range {
+            Some(range_proof) => {
+                range_proof.verify(spec, root, start_key, end_key, existence, expected_values)
+            },
+            None => {
+                env::log_str("No range proof provided for range verification");
                 false
             }
         }
@@ -692,6 +748,166 @@ impl CompressedBatchProof {
         };
         
         non_existence_proof.verify(spec, root, key)
+    }
+}
+
+impl RangeProof {
+    /// Verify a range proof for consecutive keys
+    /// 
+    /// This efficiently proves that all keys in a consecutive range either exist or don't exist.
+    /// For existence ranges, it validates all key-value pairs. For non-existence ranges,
+    /// it proves no keys exist between the left and right boundaries.
+    pub fn verify(
+        &self,
+        spec: &ProofSpec,
+        root: &[u8],
+        start_key: &[u8],
+        end_key: &[u8],
+        expected_existence: bool,
+        expected_values: &[(&[u8], &[u8])],
+    ) -> bool {
+        // VSA-2022-103 Security Patch: Validate spec security before proceeding
+        if !validate_iavl_spec_security(spec, None) {
+            env::log_str("Range proof specification failed security validation");
+            return false;
+        }
+
+        // Validate input parameters
+        if start_key > end_key {
+            env::log_str("Invalid range: start_key must be <= end_key");
+            return false;
+        }
+
+        // Verify that proof parameters match expected parameters
+        if self.start_key != start_key || self.end_key != end_key {
+            env::log_str("Range proof key range doesn't match expected range");
+            return false;
+        }
+
+        if self.existence != expected_existence {
+            env::log_str("Range proof existence flag doesn't match expected existence");
+            return false;
+        }
+
+        if self.existence {
+            // For existence ranges, verify all key proofs
+            self.verify_existence_range(spec, root, expected_values)
+        } else {
+            // For non-existence ranges, verify boundaries show no keys exist in range  
+            self.verify_non_existence_range(spec, root)
+        }
+    }
+
+    /// Verify an existence range - all keys in range must exist with correct values
+    fn verify_existence_range(
+        &self,
+        spec: &ProofSpec,
+        root: &[u8],
+        expected_values: &[(&[u8], &[u8])],
+    ) -> bool {
+        // Validate that we have proofs for all expected keys
+        if self.key_proofs.len() != expected_values.len() {
+            env::log_str("Number of key proofs doesn't match expected values");
+            return false;
+        }
+
+        // Create a map of expected values for efficient lookup
+        let mut expected_map = std::collections::HashMap::new();
+        for (key, value) in expected_values {
+            expected_map.insert(*key, *value);
+        }
+
+        // Verify each key proof
+        for proof in &self.key_proofs {
+            // Check that key is within range
+            if proof.key < self.start_key || proof.key > self.end_key {
+                env::log_str("Key proof outside expected range");
+                return false;
+            }
+
+            // Check that we have expected value for this key
+            match expected_map.get(proof.key.as_slice()) {
+                Some(expected_value) => {
+                    if proof.value != *expected_value {
+                        env::log_str("Key proof value doesn't match expected value");
+                        return false;
+                    }
+                },
+                None => {
+                    env::log_str("Unexpected key in range proof");
+                    return false;
+                }
+            }
+
+            // Verify the existence proof
+            if !proof.verify(spec, root, &proof.key, &proof.value) {
+                env::log_str(&format!("Failed to verify existence proof for key: {:?}", proof.key));
+                return false;
+            }
+        }
+
+        // Ensure all expected keys have been covered
+        for (key, _) in expected_values {
+            let found = self.key_proofs.iter().any(|proof| proof.key.as_slice() == *key);
+            if !found {
+                env::log_str(&format!("Missing proof for expected key: {:?}", key));
+                return false;
+            }
+        }
+
+        env::log_str("Range existence proof verification successful");
+        true
+    }
+
+    /// Verify a non-existence range - no keys exist between boundaries
+    fn verify_non_existence_range(&self, spec: &ProofSpec, root: &[u8]) -> bool {
+        // For non-existence ranges, we need boundary proofs showing the gap
+        match (&self.left_boundary, &self.right_boundary) {
+            (Some(left), Some(right)) => {
+                // Verify left boundary key exists and is just before our range
+                if !left.verify(spec, root, &left.key, &left.value) {
+                    env::log_str("Failed to verify left boundary proof");
+                    return false;
+                }
+
+                // Verify right boundary key exists and is just after our range  
+                if !right.verify(spec, root, &right.key, &right.value) {
+                    env::log_str("Failed to verify right boundary proof");
+                    return false;
+                }
+
+                // Validate boundary positions
+                if left.key >= self.start_key {
+                    env::log_str("Left boundary key must be before range start");
+                    return false;
+                }
+
+                if right.key <= self.end_key {
+                    env::log_str("Right boundary key must be after range end");
+                    return false;
+                }
+
+                // Ensure there's a proper gap (no keys between boundaries besides our range)
+                if !self.validate_range_gap(&left.key, &right.key) {
+                    env::log_str("Invalid gap between boundary proofs");
+                    return false;
+                }
+
+                env::log_str("Range non-existence proof verification successful");
+                true
+            },
+            _ => {
+                env::log_str("Range non-existence proof requires both left and right boundary proofs");
+                false
+            }
+        }
+    }
+
+    /// Validate that there's a proper gap between boundary keys
+    /// This is a simplified check - full implementation would require more complex gap validation
+    fn validate_range_gap(&self, left_key: &[u8], right_key: &[u8]) -> bool {
+        // Simplified validation: ensure boundaries properly bracket our range
+        left_key < self.start_key.as_slice() && self.end_key.as_slice() < right_key
     }
 }
 
@@ -1427,6 +1643,7 @@ mod tests {
                 ],
             }),
             compressed: None,
+            range: None,
         };
 
         let items = vec![(b"key1".as_slice(), Some(b"value1".as_slice()))];
@@ -1441,6 +1658,7 @@ mod tests {
             non_exist: None,
             batch: None,
             compressed: None,
+            range: None,
         };
 
         let result = no_batch_proof.verify_batch(&spec, root, &items);

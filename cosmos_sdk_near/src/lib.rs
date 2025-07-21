@@ -175,6 +175,19 @@ impl CosmosContract {
         self.ibc_client_module.verify_compressed_batch_membership(client_id, height, items, proof)
     }
 
+    pub fn ibc_verify_range_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        start_key: Vec<u8>,
+        end_key: Vec<u8>,
+        existence: bool,
+        expected_values: Vec<(Vec<u8>, Vec<u8>)>,
+        proof: Vec<u8>,
+    ) -> bool {
+        self.ibc_client_module.verify_range_membership(client_id, height, start_key, end_key, existence, expected_values, proof)
+    }
+
     pub fn ibc_get_client_state(&self, client_id: String) -> Option<modules::ibc::client::tendermint::ClientState> {
         self.ibc_client_module.get_client_state(client_id)
     }

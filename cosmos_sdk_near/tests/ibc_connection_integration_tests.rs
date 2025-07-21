@@ -1,6 +1,7 @@
 use anyhow::Result;
 use near_workspaces::{types::NearToken, Account, Contract, Worker};
 use serde_json::json;
+use tokio::time::{sleep, Duration};
 
 const COSMOS_SDK_NEAR_WASM: &[u8] = include_bytes!("../target/near/cosmos_sdk_near.wasm");
 
@@ -196,6 +197,9 @@ mod connection_tests {
         assert_eq!(conn["client_id"], client_id);
         assert_eq!(conn["counterparty"]["client_id"], "07-tendermint-0");
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
+
         Ok(())
     }
 
@@ -247,6 +251,9 @@ mod connection_tests {
         assert_eq!(conn["state"], "TryOpen");
         assert_eq!(conn["client_id"], client_id);
         assert_eq!(conn["counterparty"]["connection_id"], "connection-0");
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
 
         Ok(())
     }
@@ -321,6 +328,9 @@ mod connection_tests {
         let is_open: bool = open_result.json()?;
         assert!(is_open);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
+
         Ok(())
     }
 
@@ -394,6 +404,9 @@ mod connection_tests {
         let is_open: bool = open_result.json()?;
         assert!(is_open);
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
+
         Ok(())
     }
 
@@ -445,6 +458,9 @@ mod connection_tests {
         // Should fail because connection is not in Init state
         assert!(!ack_result.is_success());
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
+
         Ok(())
     }
 
@@ -486,6 +502,9 @@ mod connection_tests {
         // Should fail because connection is not in TryOpen state
         assert!(!confirm_result.is_success());
 
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
+
         Ok(())
     }
 
@@ -502,6 +521,9 @@ mod connection_tests {
 
         let connection: Option<serde_json::Value> = result.json()?;
         assert!(connection.is_none());
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
 
         Ok(())
     }
@@ -547,6 +569,9 @@ mod connection_tests {
 
         let is_nonexistent_open: bool = nonexistent_result.json()?;
         assert!(!is_nonexistent_open);
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
 
         Ok(())
     }
@@ -620,6 +645,9 @@ mod connection_tests {
         assert_eq!(c2["client_id"], client_id2);
         assert_eq!(c1["counterparty"]["client_id"], "07-tendermint-0");
         assert_eq!(c2["counterparty"]["client_id"], "07-tendermint-1");
+
+        // Add delay to avoid port conflicts with other test files
+        sleep(Duration::from_millis(100)).await;
 
         Ok(())
     }

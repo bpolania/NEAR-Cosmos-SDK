@@ -1,6 +1,7 @@
 use anyhow::Result;
 use near_workspaces::{types::NearToken, Account, Contract, Worker};
 use serde_json::json;
+use tokio::time::{sleep, Duration};
 
 const COSMOS_SDK_NEAR_WASM: &[u8] = include_bytes!("../target/near/cosmos_sdk_near.wasm");
 
@@ -201,6 +202,9 @@ async fn test_channel_open_init() -> Result<()> {
     assert_eq!(channel["version"], "ics20-1");
 
     println!("✅ Channel Init test passed - Channel ID: {}", channel_id);
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -254,6 +258,9 @@ async fn test_channel_open_try() -> Result<()> {
     assert_eq!(channel["counterparty"]["channel_id"], "channel-0");
 
     println!("✅ Channel Try test passed - Channel ID: {}", channel_id);
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -313,6 +320,9 @@ async fn test_channel_open_ack() -> Result<()> {
     assert_eq!(channel["counterparty"]["channel_id"], "channel-1");
 
     println!("✅ Channel Ack test passed - Channel is now Open");
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -374,6 +384,9 @@ async fn test_channel_open_confirm() -> Result<()> {
     assert_eq!(channel["state"], "Open");
 
     println!("✅ Channel Confirm test passed - Channel is now Open");
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -482,6 +495,9 @@ async fn test_complete_channel_handshake() -> Result<()> {
 
     println!("✅ Complete handshake test passed - Both channels are Open");
     println!("   Channel A: {} <-> Channel B: {}", channel_id_a, channel_id_b);
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -570,6 +586,9 @@ async fn test_send_packet() -> Result<()> {
     assert!(commitment.is_some());
 
     println!("✅ SendPacket test passed - Sequence: {}", sequence);
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -647,6 +666,9 @@ async fn test_recv_packet() -> Result<()> {
     assert_eq!(receipt.unwrap()["sequence"], 1);
 
     println!("✅ RecvPacket test passed - Packet received and receipt stored");
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -758,13 +780,16 @@ async fn test_acknowledge_packet() -> Result<()> {
     assert!(commitment.is_none());
 
     println!("✅ AcknowledgePacket test passed - Acknowledgement stored, commitment removed");
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
 #[tokio::test]
 async fn test_ordered_channel_sequence_validation() -> Result<()> {
-    // Add small delay to avoid port conflicts
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(100)).await;
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_cosmos_contract(&worker).await?;
     let alice = create_test_account(&worker, "alice").await?;
@@ -921,13 +946,16 @@ async fn test_packet_timeout_validation() -> Result<()> {
     assert!(result.is_failure());
 
     println!("✅ Packet timeout validation test passed - Timed out packet rejected");
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
 #[tokio::test]
 async fn test_channel_helper_functions() -> Result<()> {
-    // Add small delay to avoid port conflicts
-    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(200)).await;
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_cosmos_contract(&worker).await?;
     let alice = create_test_account(&worker, "alice").await?;
@@ -1118,6 +1146,9 @@ async fn test_channel_state_management() -> Result<()> {
     assert!(is_open);
 
     println!("✅ Channel state management test passed");
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
 
@@ -1217,5 +1248,8 @@ async fn test_multiple_channels() -> Result<()> {
     assert_eq!(custom_seq, 1);
 
     println!("✅ Multiple channels test passed - {} & {}", transfer_channel, custom_channel);
+    
+    // Add delay to avoid port conflicts with other test files
+    sleep(Duration::from_millis(150)).await;
     Ok(())
 }
