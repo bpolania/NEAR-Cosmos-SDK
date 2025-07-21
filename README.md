@@ -166,7 +166,7 @@ cargo test
 - **🆔 Connection Management**: Multiple connection support and connection ID generation
 - **⚠️ Error Handling**: Invalid state transition testing and edge case validation
 
-**IBC Channel Module (15 test cases, all passing):**
+**IBC Channel Module (13 test cases, all passing):**
 - **📦 Channel Handshake**: Complete Init→Try→Ack→Confirm channel establishment flows
 - **📨 Packet Transmission**: SendPacket, RecvPacket, and AcknowledgePacket with proper sequencing
 - **⏰ Timeout Handling**: Height and timestamp-based packet timeout validation
