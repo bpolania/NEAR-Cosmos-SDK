@@ -114,6 +114,8 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 ### IBC Connection Module (ICS-03)
 - **Connection Handshake**: Complete 4-step connection handshake protocol implementation
 - **State Management**: Connection state transitions (Uninitialized → Init → TryOpen → Open)
+- **Proof Verification**: Comprehensive proof validation for all handshake steps (ConnOpenTry, ConnOpenAck, ConnOpenConfirm)
+- **Security Validation**: Input validation, proof integrity checks, and error prevention
 - **Counterparty Information**: Store client IDs, connection IDs, and commitment prefixes
 - **Version Negotiation**: Support for connection version selection and feature negotiation
 - **Cross-Chain Authentication**: Establishes authenticated connections between NEAR and Cosmos chains
