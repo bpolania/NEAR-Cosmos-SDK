@@ -107,7 +107,7 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 - **07-tendermint Light Client**: Complete IBC light client implementation for cross-chain communication
 - **Client State Management**: Create and update Tendermint light clients with trust parameters
 - **Consensus State Tracking**: Store and retrieve consensus states at verified heights
-- **Cryptographic Verification**: Full Ed25519 signature verification and IAVL Merkle proof validation
+- **Cryptographic Verification**: Full Ed25519 signature verification and complete ICS-23 IAVL Merkle proof verification
 - **Canonical JSON Signing**: Proper Tendermint canonical JSON format for signature verification
 - **Header Validation**: Comprehensive signature verification, voting power validation, and timestamp checks
 - **Production Ready**: All TODOs completed, deployed and tested on NEAR testnet with comprehensive test coverage

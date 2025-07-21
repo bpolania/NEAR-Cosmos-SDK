@@ -5,6 +5,7 @@ use near_sdk::env;
 pub mod types;
 pub mod crypto;
 pub mod verification;
+pub mod ics23;
 
 pub use types::{ClientState, ConsensusState, Header, Height, PublicKey};
 pub use verification::{verify_header, validate_client_state, is_consensus_state_expired};
@@ -258,8 +259,8 @@ impl TendermintLightClientModule {
             }
         };
 
-        // Verify the non-membership proof against the consensus state root
-        verify_merkle_proof(&consensus_state.root, &key, None, &proof)
+        // Verify the non-membership proof against the consensus state root using ICS-23
+        crypto::verify_merkle_proof(&consensus_state.root, &key, None, &proof)
     }
 
     /// Get the current state of a light client
