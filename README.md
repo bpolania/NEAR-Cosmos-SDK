@@ -108,9 +108,10 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 - **Client State Management**: Create and update Tendermint light clients with trust parameters
 - **Consensus State Tracking**: Store and retrieve consensus states at verified heights
 - **Cryptographic Verification**: Full Ed25519 signature verification and complete ICS-23 IAVL Merkle proof verification
+- **Security Hardened**: VSA-2022-103 critical security patches implemented to prevent proof forgery attacks
 - **Canonical JSON Signing**: Proper Tendermint canonical JSON format for signature verification
 - **Header Validation**: Comprehensive signature verification, voting power validation, and timestamp checks
-- **Production Ready**: All TODOs completed, deployed and tested on NEAR testnet with comprehensive test coverage
+- **Production Ready**: All TODOs completed, security patched, deployed and tested on NEAR testnet
 
 ### IBC Connection Module (ICS-03)
 - **Connection Handshake**: Complete 4-step connection handshake protocol implementation
