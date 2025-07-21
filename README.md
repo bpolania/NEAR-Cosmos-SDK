@@ -145,33 +145,19 @@ cd cosmos_sdk_near
 cargo test
 ```
 
-**Test Coverage:**
+**Modular Test Structure (8 test files, 43 tests total):**
 
-**Main Contract (12 test cases, all passing):**
-- **🏦 Bank Module**: Token minting, transfers, balance validation, error handling
-- **🥩 Staking Module**: Validator management, delegation, undelegation, reward distribution
-- **🏛️ Governance Module**: Proposal submission, voting, parameter management
-- **⏰ Block Processing**: Single and multiple block advancement with cross-module integration
-- **🔗 End-to-End**: Complete multi-module workflow with realistic reward calculations
+**Core Module Tests (12 tests, all passing):**
+- **🏦 Bank Module** (`bank_integration_tests.rs`): Token minting, transfers, balance validation, error handling (3 tests)
+- **🥩 Staking Module** (`staking_integration_tests.rs`): Validator management, delegation, undelegation, reward distribution (3 tests)
+- **🏛️ Governance Module** (`governance_integration_tests.rs`): Proposal submission, voting, parameter management (3 tests)
+- **⏰ Block Processing** (`block_integration_tests.rs`): Single and multiple block advancement with cross-module integration (2 tests)
+- **🔗 End-to-End** (`e2e_integration_tests.rs`): Complete multi-module workflow with realistic reward calculations (1 test)
 
-**IBC Light Client (14 test cases, all passing):**
-- **🔗 Client Management**: Create clients, update with new headers, multiple client support
-- **🔐 Cryptographic Verification**: Ed25519 signatures, IAVL Merkle proofs, header validation
-- **📊 State Management**: Consensus states, client states, height tracking
-- **🔍 Proof Verification**: Membership and non-membership proof validation
-
-**IBC Connection Module (13 test cases, all passing):**
-- **🤝 Connection Handshake**: Full Init→Ack and Try→Confirm handshake flows
-- **🔄 State Transitions**: Connection state machine validation and error handling
-- **🆔 Connection Management**: Multiple connection support and connection ID generation
-- **⚠️ Error Handling**: Invalid state transition testing and edge case validation
-
-**IBC Channel Module (13 test cases, all passing):**
-- **📦 Channel Handshake**: Complete Init→Try→Ack→Confirm channel establishment flows
-- **📨 Packet Transmission**: SendPacket, RecvPacket, and AcknowledgePacket with proper sequencing
-- **⏰ Timeout Handling**: Height and timestamp-based packet timeout validation
-- **🔀 Channel Types**: Both ordered and unordered channel communication patterns
-- **🔍 State Validation**: Channel state transitions and packet commitment verification
+**IBC Module Tests (31 tests, all passing):**
+- **IBC Client (ICS-07)** (`ibc_client_integration_tests.rs`): Client management, cryptographic verification, state tracking, proof validation (9 tests)
+- **IBC Connection (ICS-03)** (`ibc_connection_integration_tests.rs`): Connection handshake flows, state transitions, error handling (9 tests)
+- **IBC Channel (ICS-04)** (`ibc_channel_integration_tests.rs`): Channel handshake, packet transmission, timeout handling, both channel types (13 tests)
 
 #### Test Environment
 - **Real NEAR Sandbox**: Tests run on actual NEAR blockchain environment
