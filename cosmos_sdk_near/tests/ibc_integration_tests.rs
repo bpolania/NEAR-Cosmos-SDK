@@ -279,6 +279,8 @@ mod light_client_tests {
 
     #[tokio::test]
     async fn test_update_client_basic() -> Result<()> {
+        // Add delay to avoid port conflicts with other test files
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;
