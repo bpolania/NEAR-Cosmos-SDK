@@ -125,6 +125,7 @@ mod light_client_tests {
 
     #[tokio::test]
     async fn test_create_client() -> Result<()> {
+        sleep(Duration::from_millis(800)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;
@@ -1069,6 +1070,7 @@ mod light_client_tests {
 
     #[tokio::test]
     async fn test_batch_proof_invalid_client() -> Result<()> {
+        sleep(Duration::from_millis(1000)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
 
@@ -1533,6 +1535,7 @@ mod light_client_tests {
 
     #[tokio::test]
     async fn test_range_proof_performance() -> Result<()> {
+        sleep(Duration::from_millis(1200)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;

@@ -9,7 +9,7 @@ pub mod ics23;
 
 pub use types::{ClientState, ConsensusState, Header, Height, PublicKey};
 pub use verification::{verify_header, validate_client_state, is_consensus_state_expired};
-pub use crypto::verify_merkle_proof;
+pub use crypto::{verify_merkle_proof, verify_multistore_merkle_proof, create_multistore_context};
 
 /// IBC Tendermint Light Client Module
 /// 
@@ -429,6 +429,131 @@ impl TendermintLightClientModule {
             &expected_refs,
             &proof
         )
+    }
+
+    /// Verify a multi-store proof against a client consensus state
+    /// 
+    /// Multi-store proofs enable verification of key-value pairs within specific
+    /// Cosmos SDK modules (bank, staking, governance, etc.) by proving both
+    /// that the store exists in the multi-store and that the key-value pair
+    /// exists within that store.
+    /// 
+    /// # Arguments
+    /// * `client_id` - The client ID to verify against
+    /// * `height` - The consensus state height to use for verification  
+    /// * `store_name` - The target store name (e.g., "bank", "staking", "gov")
+    /// * `key` - The key to verify within the target store
+    /// * `value` - The expected value for the key
+    /// * `proof` - The multi-store proof bytes
+    /// 
+    /// # Returns
+    /// * True if the multi-store proof is valid
+    pub fn verify_multistore_membership(
+        &self,
+        client_id: String,
+        height: u64,
+        store_name: String,
+        key: Vec<u8>,
+        value: Vec<u8>,
+        proof: Vec<u8>,
+    ) -> bool {
+        // Get client state to retrieve chain_id
+        let client_state = match self.client_states.get(&client_id) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Client state not found for client_id {}", client_id));
+                return false;
+            }
+        };
+
+        // Get consensus state at the specified height
+        let consensus_key = format!("{}#{}", client_id, height);
+        let consensus_state = match self.consensus_states.get(&consensus_key) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Consensus state not found for height {}", height));
+                return false;
+            }
+        };
+
+        // Create multi-store context using the consensus state root as app_hash
+        let context = match create_multistore_context(
+            client_state.chain_id.clone(),
+            height,
+            consensus_state.root.clone(),
+        ) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                env::log_str(&format!("Failed to create multi-store context: {}", e));
+                return false;
+            }
+        };
+
+        // Verify the multi-store proof
+        verify_multistore_merkle_proof(&context, &store_name, &key, &value, &proof)
+    }
+
+    /// Verify multiple multi-store proofs in a single operation
+    /// 
+    /// Batch verification of multiple key-value pairs across different Cosmos SDK stores
+    /// for improved efficiency in cross-chain applications.
+    /// 
+    /// # Arguments
+    /// * `client_id` - The client ID to verify against
+    /// * `height` - The consensus state height to use for verification
+    /// * `items` - Vector of (store_name, key, value, proof_bytes) tuples to verify
+    /// 
+    /// # Returns
+    /// * True if all multi-store proofs are valid
+    pub fn verify_multistore_batch(
+        &self,
+        client_id: String,
+        height: u64,
+        items: Vec<(String, Vec<u8>, Vec<u8>, Vec<u8>)>, // (store_name, key, value, proof_bytes)
+    ) -> bool {
+        if items.is_empty() {
+            env::log_str("Empty multi-store batch verification items");
+            return false;
+        }
+
+        // Get client state and consensus state once for all items
+        let client_state = match self.client_states.get(&client_id) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Client state not found for client_id {}", client_id));
+                return false;
+            }
+        };
+
+        let consensus_key = format!("{}#{}", client_id, height);
+        let consensus_state = match self.consensus_states.get(&consensus_key) {
+            Some(state) => state,
+            None => {
+                env::log_str(&format!("Consensus state not found for height {}", height));
+                return false;
+            }
+        };
+
+        // Create multi-store context
+        let context = match create_multistore_context(
+            client_state.chain_id.clone(),
+            height,
+            consensus_state.root.clone(),
+        ) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                env::log_str(&format!("Failed to create multi-store context: {}", e));
+                return false;
+            }
+        };
+
+        // Convert to slice format for crypto function
+        let item_refs: Vec<(&str, &[u8], &[u8], &[u8])> = items.iter()
+            .map(|(store, key, value, proof)| (store.as_str(), key.as_slice(), value.as_slice(), proof.as_slice()))
+            .collect();
+
+        // Verify all items in batch
+        crypto::verify_multistore_batch_proofs(&context, &item_refs)
     }
 
     /// Get the current state of a light client
