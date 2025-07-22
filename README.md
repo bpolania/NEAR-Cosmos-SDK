@@ -136,6 +136,18 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 - **Storage Efficiency**: Optimized LookupMap storage for channels, packets, and sequence tracking
 - **Application Integration**: Ready for ICS-20 token transfers and custom application protocols
 
+### Multi-Store Proof Verification Support 🆕
+- **Cross-Chain State Queries**: Verify actual Cosmos SDK chain state across different modules (bank, staking, governance)
+- **Two-Stage Verification**: Store existence proof + key-value proof within store for complete validation
+- **Batch Operations**: Efficient verification of multiple stores in single operation for performance optimization
+- **Real Cosmos SDK Compatibility**: Can interact with actual Cosmos chains (Cosmos Hub, Osmosis, Juno, etc.)
+- **ICS-20 Foundation**: Complete foundation ready for cross-chain token transfer implementation
+- **Security Compliance**: All proofs follow ICS-23 specification with VSA-2022-103 security patches
+- **Production APIs**: 
+  - `ibc_verify_multistore_membership()` - Single store verification
+  - `ibc_verify_multistore_batch()` - Multiple store batch verification
+- **Cross-Chain DeFi Ready**: Enables NEAR DeFi protocols to access and verify Cosmos SDK chain state
+
 ## Technical Implementation
 
 ### Testing Strategy
@@ -148,7 +160,7 @@ cd cosmos_sdk_near
 cargo test
 ```
 
-**Modular Test Structure (8 test files, 92 tests total):**
+**Modular Test Structure (9 test files, 98+ tests total):**
 
 **Core Module Tests (12 tests, all passing):**
 - **Bank Module** (`bank_integration_tests.rs`): Token minting, transfers, balance validation, error handling (3 tests)
@@ -157,10 +169,11 @@ cargo test
 - **Block Processing** (`block_integration_tests.rs`): Single and multiple block advancement with cross-module integration (2 tests)
 - **End-to-End** (`e2e_integration_tests.rs`): Complete multi-module workflow with realistic reward calculations (1 test)
 
-**IBC Module Tests (42 tests, all passing):**
+**IBC Module Tests (48+ tests, all passing):**
 - **IBC Client (ICS-07)** (`ibc_client_integration_tests.rs`): Client management, cryptographic verification, batch proof verification, range proof verification, state tracking, proof validation (20 tests)
 - **IBC Connection (ICS-03)** (`ibc_connection_integration_tests.rs`): Connection handshake flows, state transitions, error handling (9 tests)
 - **IBC Channel (ICS-04)** (`ibc_channel_integration_tests.rs`): Channel handshake, packet transmission, timeout handling, both channel types (13 tests)
+- **IBC Multi-Store (ICS-23)** (`ibc_multistore_integration_tests.rs`): Multi-store proof verification, batch operations, error handling, API validation (6 tests)
 
 #### Test Environment
 - **Real NEAR Sandbox**: Tests run on actual NEAR blockchain environment
