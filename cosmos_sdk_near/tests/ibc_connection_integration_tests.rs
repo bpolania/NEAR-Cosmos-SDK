@@ -260,6 +260,7 @@ mod connection_tests {
 
     #[tokio::test]
     async fn test_connection_handshake_init_to_ack() -> Result<()> {
+        sleep(Duration::from_millis(1400)).await;
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;
@@ -412,6 +413,7 @@ mod connection_tests {
 
     #[tokio::test]
     async fn test_conn_open_ack_invalid_state() -> Result<()> {
+        sleep(Duration::from_millis(500)).await; // Add delay to avoid port conflicts
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
         let user = create_test_account(&worker, "user").await?;

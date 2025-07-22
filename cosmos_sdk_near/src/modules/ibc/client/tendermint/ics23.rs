@@ -18,6 +18,7 @@ pub struct CommitmentProof {
     pub batch: Option<BatchProof>,
     pub compressed: Option<CompressedBatchProof>,
     pub range: Option<RangeProof>,
+    pub multistore: Option<Box<MultiStoreProof>>,
 }
 
 /// ExistenceProof proves that a key-value pair exists in the tree
@@ -99,6 +100,42 @@ pub struct RangeProof {
     pub key_proofs: Vec<ExistenceProof>,
     /// Inner nodes shared across the range for efficiency
     pub shared_path: Vec<InnerOp>,
+}
+
+/// MultiStoreProof proves that a store exists in the Cosmos SDK multi-store
+/// and enables verification of key-value pairs within that store
+#[derive(BorshDeserialize, BorshSerialize, JsonSchema, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct MultiStoreProof {
+    /// Store information for each store in the multi-store
+    pub store_infos: Vec<StoreInfo>,
+    /// The multi-store root hash (app_hash)
+    pub root_hash: Vec<u8>,
+    /// Proof that the target store exists in the multi-store
+    pub store_proof: Box<CommitmentProof>,
+    /// The key-value proof within the target store
+    pub kv_proof: Box<CommitmentProof>,
+    /// The target store name (e.g., "bank", "staking", "gov")
+    pub store_name: String,
+}
+
+/// StoreInfo contains information about a single store in the Cosmos SDK multi-store
+#[derive(BorshDeserialize, BorshSerialize, JsonSchema, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct StoreInfo {
+    /// The store key/name (e.g., "bank", "staking", "gov", "ibc")
+    pub name: String,
+    /// The root hash of this store's IAVL tree
+    pub hash: Vec<u8>,
+}
+
+/// MultiStoreContext provides context for multi-store proof verification
+#[derive(BorshDeserialize, BorshSerialize, JsonSchema, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct MultiStoreContext {
+    /// The chain ID of the counterparty chain
+    pub chain_id: String,
+    /// The block height at which to verify the proof
+    pub height: u64,
+    /// The application state root hash (app_hash) from the block header
+    pub app_hash: Vec<u8>,
 }
 
 /// LeafOp defines how to hash a leaf node
@@ -302,6 +339,41 @@ impl CommitmentProof {
             },
             None => {
                 env::log_str("No range proof provided for range verification");
+                false
+            }
+        }
+    }
+
+    /// Verify a multi-store proof using ICS-23 format
+    /// 
+    /// Verifies that a key-value pair exists in a specific store within the Cosmos SDK multi-store.
+    /// This enables cross-chain queries of Cosmos SDK module state (bank balances, staking delegations, etc.).
+    /// 
+    /// # Arguments
+    /// * `context` - Multi-store verification context with chain ID, height, and app_hash
+    /// * `store_name` - The target store name (e.g., "bank", "staking", "gov")
+    /// * `key` - The key to verify within the target store
+    /// * `value` - The expected value for the key
+    /// * `store_spec` - The proof specification for the multi-store tree
+    /// * `kv_spec` - The proof specification for the key-value store (usually IAVL)
+    /// 
+    /// # Returns
+    /// * True if the multi-store proof is valid, false otherwise
+    pub fn verify_multistore(
+        &self,
+        context: &MultiStoreContext,
+        store_name: &str,
+        key: &[u8],
+        value: &[u8],
+        store_spec: &ProofSpec,
+        kv_spec: &ProofSpec,
+    ) -> bool {
+        match &self.multistore {
+            Some(multistore_proof) => {
+                multistore_proof.verify(context, store_name, key, value, store_spec, kv_spec)
+            },
+            None => {
+                env::log_str("No multi-store proof provided for multi-store verification");
                 false
             }
         }
@@ -908,6 +980,151 @@ impl RangeProof {
     fn validate_range_gap(&self, left_key: &[u8], right_key: &[u8]) -> bool {
         // Simplified validation: ensure boundaries properly bracket our range
         left_key < self.start_key.as_slice() && self.end_key.as_slice() < right_key
+    }
+}
+
+// === Multi-Store Proof Verification Implementation ===
+
+impl MultiStoreProof {
+    /// Verify a multi-store proof for a key-value pair in a specific store
+    /// 
+    /// This implements the two-stage verification process for Cosmos SDK multi-store:
+    /// 1. Verify that the target store exists in the multi-store with correct hash
+    /// 2. Verify that the key-value pair exists in the target store
+    pub fn verify(
+        &self,
+        context: &MultiStoreContext,
+        store_name: &str,
+        key: &[u8],
+        value: &[u8],
+        store_spec: &ProofSpec,
+        kv_spec: &ProofSpec,
+    ) -> bool {
+        // Validate input parameters
+        if self.store_name != store_name {
+            env::log_str("Multi-store proof store name doesn't match expected store");
+            return false;
+        }
+
+        if self.root_hash != context.app_hash {
+            env::log_str("Multi-store proof root hash doesn't match context app_hash");
+            return false;
+        }
+
+        // Find the target store in store_infos
+        let target_store = match self.store_infos.iter().find(|store| store.name == store_name) {
+            Some(store) => store,
+            None => {
+                env::log_str(&format!("Target store '{}' not found in store_infos", store_name));
+                return false;
+            }
+        };
+
+        // Step 1: Verify that the store exists in the multi-store
+        if !self.verify_store_in_multistore(target_store, store_spec) {
+            env::log_str("Failed to verify store existence in multi-store");
+            return false;
+        }
+
+        // Step 2: Verify the key-value pair exists in the target store
+        if !self.verify_kv_in_store(key, value, &target_store.hash, kv_spec) {
+            env::log_str("Failed to verify key-value pair in target store");
+            return false;
+        }
+
+        env::log_str(&format!(
+            "Multi-store proof verification successful for store '{}' at height {}",
+            store_name, context.height
+        ));
+        true
+    }
+
+    /// Verify that a store exists in the multi-store with the expected hash
+    fn verify_store_in_multistore(&self, target_store: &StoreInfo, store_spec: &ProofSpec) -> bool {
+        // Create the store key (store name as key)
+        let store_key = target_store.name.as_bytes();
+        let store_value = &target_store.hash;
+
+        // Verify the store proof using the multi-store root
+        self.store_proof.verify_membership(
+            store_spec,
+            &self.root_hash,
+            store_key,
+            store_value,
+        )
+    }
+
+    /// Verify that a key-value pair exists in the target store
+    fn verify_kv_in_store(
+        &self,
+        key: &[u8],
+        value: &[u8],
+        store_root: &[u8],
+        kv_spec: &ProofSpec,
+    ) -> bool {
+        // Verify the key-value proof using the store root hash
+        self.kv_proof.verify_membership(kv_spec, store_root, key, value)
+    }
+}
+
+
+impl MultiStoreContext {
+    /// Create a new MultiStoreContext
+    pub fn new(chain_id: String, height: u64, app_hash: Vec<u8>) -> Self {
+        Self {
+            chain_id,
+            height,
+            app_hash,
+        }
+    }
+
+    /// Validate that the context has valid parameters
+    pub fn validate(&self) -> bool {
+        // Chain ID should not be empty
+        if self.chain_id.is_empty() {
+            env::log_str("Chain ID cannot be empty");
+            return false;
+        }
+
+        // Height should be positive
+        if self.height == 0 {
+            env::log_str("Height must be positive");
+            return false;
+        }
+
+        // App hash should be exactly 32 bytes for SHA-256
+        if self.app_hash.len() != 32 {
+            env::log_str("App hash must be 32 bytes (SHA-256)");
+            return false;
+        }
+
+        true
+    }
+}
+
+/// Create a multi-store proof specification
+/// 
+/// Multi-store trees in Cosmos SDK use a simple merkle tree structure
+/// where the keys are store names and values are store root hashes.
+pub fn get_multistore_spec() -> ProofSpec {
+    ProofSpec {
+        leaf_spec: LeafOp {
+            hash: HashOp::Sha256,
+            prehash_key: HashOp::NoHash,
+            prehash_value: HashOp::NoHash,  // Store hashes are already hashed
+            length: LengthOp::VarProto,
+            prefix: vec![],  // No special prefix for multi-store
+        },
+        inner_spec: InnerSpec {
+            child_order: vec![0, 1], // Binary tree
+            child_size: 32,          // SHA-256 hash size
+            min_prefix_length: 1,    // Simple tree structure
+            max_prefix_length: 1,    // Simple tree structure  
+            empty_child: vec![],
+            hash: HashOp::Sha256,
+        },
+        max_depth: 256,
+        min_depth: 0,
     }
 }
 
@@ -1644,6 +1861,7 @@ mod tests {
             }),
             compressed: None,
             range: None,
+            multistore: None,
         };
 
         let items = vec![(b"key1".as_slice(), Some(b"value1".as_slice()))];
@@ -1659,6 +1877,7 @@ mod tests {
             batch: None,
             compressed: None,
             range: None,
+            multistore: None,
         };
 
         let result = no_batch_proof.verify_batch(&spec, root, &items);

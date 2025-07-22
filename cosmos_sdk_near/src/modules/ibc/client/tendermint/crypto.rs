@@ -5,7 +5,7 @@ use chrono::{Utc, TimeZone, Datelike, Timelike};
 use near_sdk::borsh::BorshDeserialize;
 
 use super::types::{Commit, PublicKey, ValidatorSet, Validator};
-use super::ics23::{CommitmentProof, get_iavl_spec};
+use super::ics23::{CommitmentProof, get_iavl_spec, MultiStoreContext, get_multistore_spec};
 
 /// Verify commit signatures against a validator set
 /// 
@@ -543,6 +543,142 @@ pub fn parse_ics23_proof(proof_bytes: &[u8]) -> Result<CommitmentProof, String> 
         Ok(proof) => Ok(proof),
         Err(e) => Err(format!("Failed to parse proof as JSON: {}", e)),
     }
+}
+
+/// Verify a multi-store proof for a key-value pair in a specific Cosmos SDK store
+/// 
+/// This function provides the crypto layer verification for multi-store proofs,
+/// enabling cross-chain queries of Cosmos SDK module state (bank balances, staking, etc.).
+/// 
+/// # Arguments
+/// * `context` - Multi-store verification context with chain ID, height, and app_hash
+/// * `store_name` - The target store name (e.g., "bank", "staking", "gov")  
+/// * `key` - The key to verify within the target store
+/// * `value` - The expected value for the key
+/// * `proof_bytes` - The serialized multi-store proof
+/// 
+/// # Returns
+/// * True if the multi-store proof is valid, false otherwise
+pub fn verify_multistore_merkle_proof(
+    context: &MultiStoreContext,
+    store_name: &str,
+    key: &[u8],
+    value: &[u8],
+    proof_bytes: &[u8],
+) -> bool {
+    // Validate context parameters
+    if !context.validate() {
+        env::log_str("Invalid multi-store context parameters");
+        return false;
+    }
+
+    // Parse the multi-store proof
+    let proof = match parse_multistore_proof(proof_bytes) {
+        Ok(proof) => proof,
+        Err(e) => {
+            env::log_str(&format!("Failed to parse multi-store proof: {}", e));
+            return false;
+        }
+    };
+
+    // Get the appropriate proof specifications
+    let multistore_spec = get_multistore_spec();
+    let iavl_spec = get_iavl_spec();
+
+    // Verify the multi-store proof
+    proof.verify_multistore(context, store_name, key, value, &multistore_spec, &iavl_spec)
+}
+
+/// Parse a multi-store proof from bytes
+/// 
+/// Parses JSON or Borsh serialized multi-store proof into the CommitmentProof structure.
+/// Tries JSON first (for compatibility with Cosmos SDK), then falls back to Borsh.
+/// 
+/// # Arguments
+/// * `proof_bytes` - The serialized proof data
+/// 
+/// # Returns
+/// * Result containing the parsed CommitmentProof or error message
+fn parse_multistore_proof(proof_bytes: &[u8]) -> Result<CommitmentProof, String> {
+    // Try to parse as JSON first (standard Cosmos SDK format)
+    if let Ok(json_str) = std::str::from_utf8(proof_bytes) {
+        if let Ok(proof) = serde_json::from_str::<CommitmentProof>(json_str) {
+            return Ok(proof);
+        }
+    }
+    
+    // Fall back to Borsh format
+    match CommitmentProof::try_from_slice(proof_bytes) {
+        Ok(proof) => Ok(proof),
+        Err(e) => Err(format!("Failed to parse proof as JSON or Borsh: {}", e)),
+    }
+}
+
+/// Verify multiple key-value pairs in different stores using multi-store proofs
+/// 
+/// This batch verification function allows efficiently verifying multiple items
+/// across different Cosmos SDK stores in a single operation.
+/// 
+/// # Arguments
+/// * `context` - Multi-store verification context
+/// * `items` - Vector of (store_name, key, value, proof_bytes) tuples to verify
+/// 
+/// # Returns
+/// * True if all multi-store proofs are valid, false otherwise
+pub fn verify_multistore_batch_proofs(
+    context: &MultiStoreContext,
+    items: &[(&str, &[u8], &[u8], &[u8])], // (store_name, key, value, proof_bytes)
+) -> bool {
+    if items.is_empty() {
+        env::log_str("Empty multi-store batch proof items");
+        return false;
+    }
+
+    // Validate context once for all items
+    if !context.validate() {
+        env::log_str("Invalid multi-store context for batch verification");
+        return false;
+    }
+
+    // Verify each item in the batch
+    for (i, (store_name, key, value, proof_bytes)) in items.iter().enumerate() {
+        if !verify_multistore_merkle_proof(context, store_name, key, value, proof_bytes) {
+            env::log_str(&format!("Multi-store batch proof item {} failed verification", i));
+            return false;
+        }
+    }
+
+    env::log_str(&format!(
+        "Multi-store batch proof verification successful for {} items at height {}", 
+        items.len(), 
+        context.height
+    ));
+    true
+}
+
+/// Create a multi-store context for proof verification
+/// 
+/// Helper function to create properly validated multi-store verification context.
+/// 
+/// # Arguments
+/// * `chain_id` - The chain ID of the counterparty chain
+/// * `height` - The block height for verification
+/// * `app_hash` - The application state root hash from the block header
+/// 
+/// # Returns
+/// * Result containing MultiStoreContext or error message
+pub fn create_multistore_context(
+    chain_id: String,
+    height: u64,
+    app_hash: Vec<u8>,
+) -> Result<MultiStoreContext, String> {
+    let context = MultiStoreContext::new(chain_id, height, app_hash);
+    
+    if !context.validate() {
+        return Err("Invalid multi-store context parameters".to_string());
+    }
+    
+    Ok(context)
 }
 
 #[cfg(test)]
