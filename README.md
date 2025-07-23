@@ -268,9 +268,24 @@ The relayer is essential for enabling real-world IBC applications like cross-cha
 - **Original Contract:** `cuteharbor3573.testnet` ([Transaction](https://testnet.nearblocks.io/txns/12RKM38nmfz5ZaW59rS2d4a1BvdbeonMkiZj6UUknP5G))
 - **IBC Light Client:** `demo.cuteharbor3573.testnet` ([Transaction](https://testnet.nearblocks.io/txns/EfibvCUY6WD8EwWU54vTzwYVnAKSkkdrB1Hx17B3dKTr))
 
-**Current Status:**
-- **Restructured**: Proper Cosmos SDK module architecture implemented
-- **Unified Contract**: All modules (Bank, Staking, Gov, IBC) in single contract
-- **Successfully Deployed**: `cosmos_sdk_near.wasm` deployed to `demo.cuteharbor3573.testnet`
-- **All Tests Passing**: Comprehensive test suite validates all functionality
+**Current Production Deployment:**
+- **Contract Account:** `demo.cuteharbor3573.testnet`
+- **Latest Deployment:** ([Transaction](https://testnet.nearblocks.io/txns/AKyBb1aL4aNAU2MtDuT64pU9EixHmEeCdsZ65jss8Rew))
+- **Deployment Date:** July 23, 2025
 - **Network:** NEAR Testnet
+
+**Deployed Features:**
+- ✅ **Complete Cosmos SDK Modules**: Bank, Staking, Governance
+- ✅ **Full IBC Stack**: Client (ICS-07), Connection (ICS-03), Channel (ICS-04)
+- ✅ **Multi-Store Proof Verification**: Cross-chain state queries
+- ✅ **ICS-20 Token Transfer**: Cross-chain fungible token transfers 🆕
+- ✅ **55+ Tests Passing**: Comprehensive validation of all functionality
+
+**Available APIs:**
+- **Core Modules**: 15+ functions for bank, staking, governance operations
+- **IBC Infrastructure**: 25+ functions for cross-chain communication
+- **Token Transfers**: 10+ functions for ICS-20 cross-chain token transfers
+- **State Verification**: Multi-store proof verification capabilities
+
+**Production Ready:**
+The unified contract provides a complete Cosmos SDK runtime on NEAR with full cross-chain capabilities, ready for integration with IBC relayers and Cosmos ecosystem chains.
