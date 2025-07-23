@@ -43,8 +43,15 @@ cosmos_sdk_near/           # Unified Cosmos SDK NEAR Implementation
 │               ├── handlers.rs  # Transfer packet processing
 │               └── mod.rs       # Transfer module implementation
 ├── tests/
-│   ├── integration_tests.rs     # Main contract tests
-│   └── ibc_integration_tests.rs # IBC functionality tests
+│   ├── bank_integration_tests.rs        # Bank module tests
+│   ├── staking_integration_tests.rs     # Staking module tests
+│   ├── governance_integration_tests.rs  # Governance module tests
+│   ├── ibc_client_integration_tests.rs  # IBC client tests
+│   ├── ibc_connection_integration_tests.rs # IBC connection tests
+│   ├── ibc_channel_integration_tests.rs    # IBC channel tests
+│   ├── ibc_multistore_integration_tests.rs # Multi-store proof tests
+│   ├── testnet_integration_tests.rs     # Live testnet tests
+│   └── e2e_integration_tests.rs         # End-to-end tests
 ├── target/near/           # Compiled WASM artifacts
 └── Cargo.toml            # Unified dependencies
 ```
@@ -200,6 +207,7 @@ cargo test
 #### Test Environment
 - **Real NEAR Sandbox**: Tests run on actual NEAR blockchain environment
 - **Embedded Contract**: Uses compiled WASM for authentic testing
+- **Live Testnet Tests**: Direct RPC integration tests against deployed contract
 - **State Validation**: Verifies all balance changes, delegations, and governance state
 - **Error Testing**: Includes negative test cases for proper error handling
 
@@ -280,7 +288,7 @@ The relayer is essential for enabling real-world IBC applications like cross-cha
 - ✅ **Full IBC Stack**: Client (ICS-07), Connection (ICS-03), Channel (ICS-04)
 - ✅ **Multi-Store Proof Verification**: Cross-chain state queries
 - ✅ **ICS-20 Token Transfer**: Cross-chain fungible token transfers 🆕
-- ✅ **55+ Tests Passing**: Comprehensive validation of all functionality
+- ✅ **60+ Tests Passing**: Comprehensive validation including live testnet tests
 
 **Available APIs:**
 - **Core Modules**: 15+ functions for bank, staking, governance operations
