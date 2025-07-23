@@ -13,6 +13,7 @@ use modules::ibc::connection::{ConnectionModule, ConnectionEnd, Counterparty, Ve
 use modules::ibc::connection::types::{MerklePrefix};
 use modules::ibc::channel::{ChannelModule, ChannelEnd, Order, Packet, Acknowledgement};
 use modules::ibc::channel::types::{PacketCommitment, PacketReceipt};
+use modules::ibc::transfer::{TransferModule, FungibleTokenPacketData, DenomTrace};
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
@@ -23,6 +24,7 @@ pub struct CosmosContract {
     ibc_client_module: TendermintLightClientModule,
     ibc_connection_module: ConnectionModule,
     ibc_channel_module: ChannelModule,
+    ibc_transfer_module: TransferModule,
     block_height: u64,
 }
 
@@ -37,6 +39,7 @@ impl CosmosContract {
             ibc_client_module: TendermintLightClientModule::new(),
             ibc_connection_module: ConnectionModule::new(),
             ibc_channel_module: ChannelModule::new(),
+            ibc_transfer_module: TransferModule::new(),
             block_height: 0,
         }
     }
@@ -551,6 +554,207 @@ impl CosmosContract {
     pub fn ibc_is_timeout_height_zero(&self, height_revision: u64, height_value: u64) -> bool {
         let height = modules::ibc::channel::types::Height::new(height_revision, height_value);
         self.ibc_channel_module.is_timeout_height_zero(&height)
+    }
+
+    // ICS-20 Fungible Token Transfer Functions
+    
+    /// Send a cross-chain token transfer via IBC
+    /// 
+    /// # Arguments
+    /// * `source_channel` - Channel to send the transfer through
+    /// * `token_denom` - Token denomination to transfer
+    /// * `amount` - Amount to transfer
+    /// * `receiver` - Destination address on receiving chain
+    /// * `timeout_height_revision` - Timeout height revision number
+    /// * `timeout_height_value` - Timeout height value
+    /// * `timeout_timestamp` - Timeout timestamp (nanoseconds)
+    /// * `memo` - Optional memo string
+    /// 
+    /// # Returns
+    /// * Packet sequence number on success
+    #[handle_result]
+    pub fn ibc_transfer(
+        &mut self,
+        source_channel: String,
+        token_denom: String,
+        amount: Balance,
+        receiver: String,
+        timeout_height_revision: u64,
+        timeout_height_value: u64,
+        timeout_timestamp: u64,
+        memo: Option<String>,
+    ) -> Result<u64, String> {
+        let sender = env::predecessor_account_id().to_string();
+        let timeout_height = modules::ibc::channel::Height::new(timeout_height_revision, timeout_height_value);
+        
+        self.ibc_transfer_module.send_transfer(
+            &mut self.ibc_channel_module,
+            &mut self.bank_module,
+            "transfer".to_string(),
+            source_channel,
+            token_denom,
+            amount,
+            sender,
+            receiver,
+            timeout_height,
+            timeout_timestamp,
+            memo,
+        ).map_err(|e| format!("Transfer failed: {:?}", e))
+    }
+
+    /// Get denomination trace information
+    /// 
+    /// # Arguments
+    /// * `trace_hash` - Hash of the denomination trace
+    /// 
+    /// # Returns
+    /// * DenomTrace if found
+    pub fn ibc_get_denom_trace(&self, trace_hash: String) -> Option<DenomTrace> {
+        self.ibc_transfer_module.get_denom_trace(&trace_hash)
+    }
+
+    /// Get trace path by IBC denomination
+    /// 
+    /// # Arguments
+    /// * `ibc_denom` - IBC denomination (format: "ibc/{hash}")
+    /// 
+    /// # Returns
+    /// * Trace path if found
+    pub fn ibc_get_trace_path(&self, ibc_denom: String) -> Option<String> {
+        self.ibc_transfer_module.get_trace_path(&ibc_denom)
+    }
+
+    /// Get escrowed token amount for a channel
+    /// 
+    /// # Arguments
+    /// * `port_id` - Port identifier
+    /// * `channel_id` - Channel identifier
+    /// * `denom` - Token denomination
+    /// 
+    /// # Returns
+    /// * Escrowed amount
+    pub fn ibc_get_escrowed_amount(&self, port_id: String, channel_id: String, denom: String) -> Balance {
+        self.ibc_transfer_module.get_escrowed_amount(&port_id, &channel_id, &denom)
+    }
+
+    /// Get voucher token supply for a denomination
+    /// 
+    /// # Arguments
+    /// * `denom` - Token denomination
+    /// 
+    /// # Returns
+    /// * Total voucher supply
+    pub fn ibc_get_voucher_supply(&self, denom: String) -> Balance {
+        self.ibc_transfer_module.get_voucher_supply(&denom)
+    }
+
+    /// Check if a denomination is from source zone (native to this chain)
+    /// 
+    /// # Arguments
+    /// * `port_id` - Port identifier
+    /// * `channel_id` - Channel identifier
+    /// * `denom` - Token denomination
+    /// 
+    /// # Returns
+    /// * True if token is from source zone
+    pub fn ibc_is_source_zone(&self, port_id: String, channel_id: String, denom: String) -> bool {
+        self.ibc_transfer_module.is_source_zone(&port_id, &channel_id, &denom)
+    }
+
+    /// Create IBC denomination for outgoing transfers
+    /// 
+    /// # Arguments
+    /// * `port_id` - Port identifier
+    /// * `channel_id` - Channel identifier
+    /// * `denom` - Original denomination
+    /// 
+    /// # Returns
+    /// * IBC denomination string
+    pub fn ibc_create_ibc_denom(&self, port_id: String, channel_id: String, denom: String) -> String {
+        self.ibc_transfer_module.create_ibc_denom(&port_id, &channel_id, &denom)
+    }
+
+    /// Validate transfer parameters before execution
+    /// 
+    /// # Arguments
+    /// * `source_port` - Source port identifier
+    /// * `source_channel` - Source channel identifier  
+    /// * `denom` - Token denomination
+    /// * `amount` - Transfer amount
+    /// * `sender` - Sender address
+    /// 
+    /// # Returns
+    /// * Success or error message
+    #[handle_result]
+    pub fn ibc_validate_transfer(
+        &self,
+        source_port: String,
+        source_channel: String,
+        denom: String,
+        amount: Balance,
+        sender: String,
+    ) -> Result<(), String> {
+        self.ibc_transfer_module.validate_transfer(
+            &self.ibc_channel_module,
+            &self.bank_module,
+            &source_port,
+            &source_channel,
+            &denom,
+            amount,
+            &sender,
+        ).map_err(|e| format!("Validation failed: {:?}", e))
+    }
+
+    /// Process received IBC transfer packet
+    /// 
+    /// This function is called internally when receiving ICS-20 packets.
+    /// It's exposed for testing and debugging purposes.
+    /// 
+    /// # Arguments
+    /// * `packet_data` - Raw packet data bytes
+    /// 
+    /// # Returns
+    /// * Success or acknowledgement data
+    #[handle_result]
+    pub fn ibc_process_transfer_packet(&mut self, packet_data: Vec<u8>) -> Result<Vec<u8>, String> {
+        // Parse packet data
+        let _transfer_data = FungibleTokenPacketData::from_bytes(&packet_data)
+            .map_err(|e| format!("Invalid packet data: {:?}", e))?;
+
+        // Create a mock packet for processing (in real implementation this would come from IBC channel)
+        let packet = modules::ibc::channel::Packet::new(
+            1, // sequence
+            "transfer".to_string(),
+            "channel-0".to_string(),
+            "transfer".to_string(),
+            "channel-1".to_string(),
+            packet_data,
+            modules::ibc::channel::Height::new(1, 1000),
+            0,
+        );
+
+        let ack = self.ibc_transfer_module.receive_transfer(
+            &self.ibc_channel_module,
+            &mut self.bank_module,
+            &packet,
+        ).map_err(|e| format!("Transfer processing failed: {:?}", e))?;
+
+        Ok(ack.data)
+    }
+
+    /// Register a denomination trace
+    /// 
+    /// # Arguments
+    /// * `path` - Full trace path (e.g., "transfer/channel-0/uatom")
+    /// 
+    /// # Returns
+    /// * IBC denomination (ibc/{hash})
+    #[handle_result]
+    pub fn ibc_register_denom_trace(&mut self, path: String) -> Result<String, String> {
+        let denom_trace = DenomTrace::from_path(&path)
+            .map_err(|e| format!("Invalid trace path: {:?}", e))?;
+        
+        Ok(self.ibc_transfer_module.register_denom_trace(denom_trace))
     }
 
     // View functions

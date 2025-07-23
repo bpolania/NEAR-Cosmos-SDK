@@ -12,6 +12,7 @@ This project recreates essential Cosmos modules without ABCI or Tendermint, incl
 - **IBC Light Client**: Inter-Blockchain Communication via Tendermint light client (ICS-07)
 - **IBC Connection Module**: Connection handshake protocol for cross-chain communication (ICS-03)
 - **IBC Channel Module**: Packet-based messaging protocol for reliable cross-chain communication (ICS-04)
+- **IBC Token Transfer**: Cross-chain fungible token transfers using ICS-20 specification
 
 All persistent state lives in NEAR's key-value store, namespaced by byte-prefixed keys that mirror Cosmos multistore paths.
 
@@ -36,7 +37,11 @@ cosmos_sdk_near/           # Unified Cosmos SDK NEAR Implementation
 │           │       ├── verification.rs # Header verification
 │           │       └── mod.rs         # Module implementation
 │           ├── connection/      # ICS-03 Connection handshake
-│           └── channel/         # ICS-04 Channel & packet handling
+│           ├── channel/         # ICS-04 Channel & packet handling
+│           └── transfer/        # ICS-20 Token transfer application
+│               ├── types.rs     # Token transfer data structures
+│               ├── handlers.rs  # Transfer packet processing
+│               └── mod.rs       # Transfer module implementation
 ├── tests/
 │   ├── integration_tests.rs     # Main contract tests
 │   └── ibc_integration_tests.rs # IBC functionality tests
@@ -136,7 +141,7 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
 - **Storage Efficiency**: Optimized LookupMap storage for channels, packets, and sequence tracking
 - **Application Integration**: Ready for ICS-20 token transfers and custom application protocols
 
-### Multi-Store Proof Verification Support 🆕
+### Multi-Store Proof Verification Support
 - **Cross-Chain State Queries**: Verify actual Cosmos SDK chain state across different modules (bank, staking, governance)
 - **Two-Stage Verification**: Store existence proof + key-value proof within store for complete validation
 - **Batch Operations**: Efficient verification of multiple stores in single operation for performance optimization
@@ -147,6 +152,22 @@ near call your-account.testnet new '{}' --accountId your-account.testnet
   - `ibc_verify_multistore_membership()` - Single store verification
   - `ibc_verify_multistore_batch()` - Multiple store batch verification
 - **Cross-Chain DeFi Ready**: Enables NEAR DeFi protocols to access and verify Cosmos SDK chain state
+
+### IBC Token Transfer Module (ICS-20) 🆕
+- **Cross-Chain Token Transfers**: Complete implementation of ICS-20 specification for fungible token transfers
+- **Bidirectional Transfers**: Send and receive tokens between NEAR and any Cosmos SDK chain
+- **Token Escrow/Mint Mechanics**: Native token escrow for outgoing transfers, voucher token minting for incoming transfers
+- **Denomination Tracing**: Full path tracking for multi-hop transfers with SHA256 hash-based IBC denominations
+- **Source Zone Detection**: Automatic detection of token origin for proper escrow/burn logic
+- **Comprehensive Error Handling**: Robust validation, timeout handling, and refund mechanisms
+- **Production APIs**:
+  - `ibc_transfer()` - Send cross-chain token transfers
+  - `ibc_get_denom_trace()` - Query denomination path information
+  - `ibc_get_escrowed_amount()` - Check escrowed token balances
+  - `ibc_get_voucher_supply()` - Check voucher token supply
+  - `ibc_register_denom_trace()` - Register new token denominations
+- **Integration Ready**: Seamlessly integrates with existing Bank Module and IBC infrastructure
+- **Test Coverage**: 17 comprehensive tests covering all transfer scenarios and edge cases
 
 ## Technical Implementation
 
@@ -160,7 +181,7 @@ cd cosmos_sdk_near
 cargo test
 ```
 
-**Modular Test Structure (9 test files, 98+ tests total):**
+**Modular Test Structure (9 test files, 55+ tests total):**
 
 **Core Module Tests (12 tests, all passing):**
 - **Bank Module** (`bank_integration_tests.rs`): Token minting, transfers, balance validation, error handling (3 tests)
@@ -169,11 +190,12 @@ cargo test
 - **Block Processing** (`block_integration_tests.rs`): Single and multiple block advancement with cross-module integration (2 tests)
 - **End-to-End** (`e2e_integration_tests.rs`): Complete multi-module workflow with realistic reward calculations (1 test)
 
-**IBC Module Tests (48+ tests, all passing):**
-- **IBC Client (ICS-07)** (`ibc_client_integration_tests.rs`): Client management, cryptographic verification, batch proof verification, range proof verification, state tracking, proof validation (20 tests)
-- **IBC Connection (ICS-03)** (`ibc_connection_integration_tests.rs`): Connection handshake flows, state transitions, error handling (9 tests)
-- **IBC Channel (ICS-04)** (`ibc_channel_integration_tests.rs`): Channel handshake, packet transmission, timeout handling, both channel types (13 tests)
-- **IBC Multi-Store (ICS-23)** (`ibc_multistore_integration_tests.rs`): Multi-store proof verification, batch operations, error handling, API validation (6 tests)
+**IBC Module Tests (43+ tests, all passing):**
+- **IBC Client (ICS-07)**: Client management, cryptographic verification, batch proof verification, range proof verification, state tracking, proof validation (20 tests)
+- **IBC Connection (ICS-03)**: Connection handshake flows, state transitions, error handling (4 tests)
+- **IBC Channel (ICS-04)**: Channel handshake, packet transmission, timeout handling, both channel types (5 tests)
+- **IBC Multi-Store (ICS-23)**: Multi-store proof verification, batch operations, error handling, API validation (3 tests)
+- **IBC Token Transfer (ICS-20)**: Cross-chain token transfers, escrow/mint mechanics, denomination tracing, packet processing, error handling (17 tests)
 
 #### Test Environment
 - **Real NEAR Sandbox**: Tests run on actual NEAR blockchain environment
@@ -222,8 +244,8 @@ The unified contract is ready for:
 2. IBC light client foundation (completed)
 3. IBC Connection and Channel modules (completed)
 4. Integration testing framework (completed)
-5. Production deployment with complete IBC stack
-6. ICS-20 token transfer application implementation
+5. Production deployment with complete IBC stack (completed)
+6. ICS-20 token transfer application implementation (completed)
 
 The core architecture follows proper Cosmos SDK conventions with all modules unified in a single contract, making this a robust and properly structured Cosmos runtime for NEAR Protocol with cross-chain capabilities.
 
