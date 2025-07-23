@@ -269,8 +269,9 @@ The relayer is essential for enabling real-world IBC applications like cross-cha
 - **IBC Light Client:** `demo.cuteharbor3573.testnet` ([Transaction](https://testnet.nearblocks.io/txns/EfibvCUY6WD8EwWU54vTzwYVnAKSkkdrB1Hx17B3dKTr))
 
 **Current Production Deployment:**
-- **Contract Account:** `demo.cuteharbor3573.testnet`
-- **Latest Deployment:** ([Transaction](https://testnet.nearblocks.io/txns/AKyBb1aL4aNAU2MtDuT64pU9EixHmEeCdsZ65jss8Rew))
+- **Contract Account:** `cosmos-sdk-demo.testnet`
+- **Latest Deployment:** ([Transaction](https://testnet.nearblocks.io/txns/7fiP4uUKLvZnnriS8DNmTd9QssRtmeSykiKXos1R3G99))
+- **Initialization:** ([Transaction](https://testnet.nearblocks.io/txns/5hDcQqgPBRr7o5zUTDXx15aYwfnc75YShEJAcuBv7VUw))
 - **Deployment Date:** July 23, 2025
 - **Network:** NEAR Testnet
 

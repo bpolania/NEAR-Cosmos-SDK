@@ -24,10 +24,12 @@ chrono = { version = "0.4", default-features = false, features = ["serde"] }
 schemars = "0.8"
 
 [dev-dependencies]
-near-workspaces = "0.11"
+near-workspaces = { version = "0.11", features = ["experimental"] }
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 near-sdk = { version = "5.1.0", features = ["unit-testing"] }
+reqwest = { version = "0.12", features = ["json"] }
+base64 = "0.21"
 
 [profile.release]
 codegen-units = 1
