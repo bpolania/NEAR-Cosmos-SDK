@@ -9,13 +9,29 @@ use ibc_relayer::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+use async_trait::async_trait;
+use futures::Stream;
 
 // Example chain implementation
 struct ExampleChain {
     _name: String,
 }
 
-impl Chain for ExampleChain {}
+#[async_trait]
+impl Chain for ExampleChain {
+    async fn chain_id(&self) -> String { "example".to_string() }
+    async fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> { Ok(1000) }
+    async fn query_packet_commitment(&self, _: &str, _: &str, _: u64) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> { Ok(None) }
+    async fn query_packet_acknowledgment(&self, _: &str, _: &str, _: u64) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> { Ok(None) }
+    async fn query_packet_receipt(&self, _: &str, _: &str, _: u64) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> { Ok(false) }
+    async fn query_next_sequence_recv(&self, _: &str, _: &str) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> { Ok(1) }
+    async fn get_events(&self, _: u64, _: u64) -> Result<Vec<ChainEvent>, Box<dyn std::error::Error + Send + Sync>> { Ok(vec![]) }
+    async fn subscribe_events(&self) -> Result<Box<dyn Stream<Item = ChainEvent> + Send + Unpin>, Box<dyn std::error::Error + Send + Sync>> { 
+        Ok(Box::new(futures::stream::empty()))
+    }
+    async fn submit_transaction(&self, _: Vec<u8>) -> Result<String, Box<dyn std::error::Error + Send + Sync>> { Ok("example_tx".to_string()) }
+    async fn health_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> { Ok(()) }
+}
 
 fn main() {
     println!("IBC Relayer Example Usage");
