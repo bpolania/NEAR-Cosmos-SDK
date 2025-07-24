@@ -1,0 +1,71 @@
+[package]
+name = "ibc-relayer"
+version = "0.1.0"
+edition = "2021"
+authors = ["NEAR-Cosmos-SDK Contributors"]
+description = "IBC relayer for bridging NEAR and Cosmos chains"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "relayer"
+path = "src/main.rs"
+
+[dependencies]
+# Use workspace dependencies for consistency
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sha2 = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+base64 = { workspace = true }
+toml = { workspace = true }
+clap = { workspace = true }
+
+# NEAR integration
+near-jsonrpc-client = "0.8"
+near-primitives = "0.21"
+near-crypto = "0.21"
+
+# Cosmos integration  
+cosmos-sdk-proto = "0.21"
+tendermint = "0.34"
+tendermint-rpc = "0.34"
+tendermint-proto = "0.34"
+
+# Metrics and monitoring
+prometheus = { version = "0.13", optional = true }
+axum = { version = "0.7", optional = true }
+
+# Async utilities
+async-trait = "0.1"
+pin-project = "1.0"
+stream-cancel = "0.8"
+
+# Configuration
+config = "0.14"
+dirs = "5.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4"] }
+humantime = "2.1"
+
+[dev-dependencies]
+# Use workspace dependencies for testing
+near-workspaces = { workspace = true }
+
+# Testing utilities
+tokio-test = "0.4"
+tempfile = "3.8"
+wiremock = "0.5"
+
+[features]
+default = ["metrics"]
+metrics = ["prometheus", "axum"]

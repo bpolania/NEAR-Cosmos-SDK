@@ -257,18 +257,73 @@ The unified contract is ready for:
 
 The core architecture follows proper Cosmos SDK conventions with all modules unified in a single contract, making this a robust and properly structured Cosmos runtime for NEAR Protocol with cross-chain capabilities.
 
-## Next Steps
+## IBC Relayer
 
-### Relayer Development
-To enable full cross-chain functionality, the next critical step is developing a stable IBC relayer that can:
+### Monorepo Structure
+This repository now serves as a complete monorepo containing both the Cosmos SDK smart contract and IBC relayer:
 
-- **Bridge NEAR and Cosmos chains**: Relay packets between the NEAR-based Cosmos SDK and native Cosmos chains
-- **Handle client updates**: Automatically update light clients on both sides with new headers
-- **Process IBC packets**: Listen for packet events and relay them across chains with proper proof generation
-- **Support multiple channels**: Manage concurrent IBC channels for different applications (ICS-20 token transfers, custom protocols)
-- **Ensure reliability**: Implement retry logic, error handling, and monitoring for production-grade cross-chain communication
+```
+NEAR-Cosmos-SDK/
+├── crates/
+│   ├── cosmos-sdk-contract/    # NEAR smart contract (moved from root)
+│   └── ibc-relayer/           # IBC relayer implementation (NEW)
+├── Cargo.toml                 # Workspace configuration
+└── README.md                  # This file
+```
 
-The relayer is essential for enabling real-world IBC applications like cross-chain token transfers and custom inter-blockchain protocols.
+### IBC Relayer Implementation
+A production-ready IBC relayer that bridges NEAR and Cosmos chains:
+
+#### Architecture
+- **NEAR Chain Integration**: Direct integration with the deployed Cosmos SDK contract at `cosmos-sdk-demo.testnet`
+- **Cosmos Chain Support**: Full Tendermint RPC integration for any Cosmos SDK chain
+- **Light Clients**: NEAR and Tendermint light client implementations
+- **Event Monitoring**: Real-time packet event detection and processing
+- **Relay Engine**: Bidirectional packet relay with proof generation
+- **Configuration System**: Flexible TOML-based configuration for multiple chains
+
+#### Key Features
+- **Chain Abstraction**: Unified interface for NEAR and Cosmos chains
+- **Packet Relay**: Automatic IBC packet transmission with cryptographic proofs
+- **Client Management**: Automated light client updates for both chains
+- **Connection & Channel Management**: Automated handshake processes
+- **Monitoring & Metrics**: Prometheus metrics and comprehensive logging
+- **Error Recovery**: Robust retry mechanisms and error handling
+
+#### Usage
+```bash
+# Navigate to relayer
+cd crates/ibc-relayer
+
+# Start the relayer
+cargo run -- start
+
+# Create a new connection
+cargo run -- create-connection near-testnet cosmoshub-testnet
+
+# Create a new channel
+cargo run -- create-channel connection-0 transfer
+
+# Check relayer status
+cargo run -- status
+```
+
+#### Configuration
+The relayer uses `config/relayer.toml` for chain configuration:
+
+```toml
+[chains.near-testnet.config]
+type = "near"
+contract_id = "cosmos-sdk-demo.testnet"  # Our deployed contract
+rpc_endpoint = "https://rpc.testnet.near.org"
+
+[chains.cosmoshub-testnet.config]
+type = "cosmos"
+rpc_endpoint = "https://rpc.testnet.cosmos.network"
+address_prefix = "cosmos"
+```
+
+This relayer implementation enables real-world cross-chain communication between NEAR and Cosmos chains, completing the full IBC infrastructure.
 
 ## DEPLOYMENT STATUS
 
