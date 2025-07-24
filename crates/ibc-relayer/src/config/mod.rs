@@ -99,22 +99,6 @@ impl RelayerConfig {
         Ok(config)
     }
 
-    /// Save configuration to TOML file
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
-        let content = toml::to_string_pretty(self)?;
-        std::fs::write(path, content)?;
-        Ok(())
-    }
-
-    /// Get chain configuration by ID
-    pub fn get_chain(&self, chain_id: &str) -> Option<&ChainConfig> {
-        self.chains.get(chain_id)
-    }
-
-    /// Get connection configuration by ID
-    pub fn get_connection(&self, connection_id: &str) -> Option<&ConnectionConfig> {
-        self.connections.iter().find(|c| c.id == connection_id)
-    }
 }
 
 impl Default for RelayerConfig {

@@ -6,9 +6,17 @@ authors = ["NEAR-Cosmos-SDK Contributors"]
 description = "IBC relayer for bridging NEAR and Cosmos chains"
 license = "MIT OR Apache-2.0"
 
+[lib]
+name = "ibc_relayer"
+path = "src/lib.rs"
+
 [[bin]]
 name = "relayer"
 path = "src/main.rs"
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
 
 [dependencies]
 # Use workspace dependencies for consistency

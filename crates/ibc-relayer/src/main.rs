@@ -4,11 +4,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod chains;
-mod light_clients;
 mod relay;
-mod events;
 mod metrics;
-mod utils;
 
 use config::RelayerConfig;
 
@@ -117,11 +114,37 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn start_relayer(config: RelayerConfig) -> anyhow::Result<()> {
+    use crate::chains::Chain;
+    use crate::relay::RelayEngine;
+    use crate::metrics::RelayerMetrics;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    
     info!("🚀 IBC Relayer starting...");
     
-    // TODO: Initialize chains
-    // TODO: Start packet relay engine
-    // TODO: Start metrics server
+    // Initialize metrics
+    let metrics = Arc::new(RelayerMetrics::new()?);
+    info!("Metrics initialized");
+    
+    // Initialize chains
+    let chains: HashMap<String, Arc<dyn Chain>> = HashMap::new();
+    
+    // Check if metrics are enabled before moving config
+    let metrics_enabled = config.metrics.enabled;
+    let metrics_host = config.metrics.host.clone();
+    let metrics_port = config.metrics.port;
+    
+    // Start packet relay engine
+    let relay_engine = RelayEngine::new(config, chains, metrics.clone());
+    info!("Relay engine initialized with {} chains", relay_engine.chains.len());
+    
+    // Start metrics server if enabled
+    if metrics_enabled {
+        let registry = metrics.registry();
+        info!("Metrics server would start on {}:{}", metrics_host, metrics_port);
+        // In real implementation, would start HTTP server here
+        let _ = registry.gather(); // Use registry
+    }
     
     warn!("Relayer implementation in progress");
     
@@ -132,22 +155,22 @@ async fn start_relayer(config: RelayerConfig) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn query_chain(config: &RelayerConfig, chain: &str, query_type: &str) -> anyhow::Result<()> {
+async fn query_chain(_config: &RelayerConfig, chain: &str, query_type: &str) -> anyhow::Result<()> {
     info!("Query {} on {}: Not implemented yet", query_type, chain);
     Ok(())
 }
 
-async fn create_connection(config: &RelayerConfig, src_chain: &str, dst_chain: &str) -> anyhow::Result<()> {
+async fn create_connection(_config: &RelayerConfig, src_chain: &str, dst_chain: &str) -> anyhow::Result<()> {
     info!("Create connection {}->{}: Not implemented yet", src_chain, dst_chain);
     Ok(())
 }
 
-async fn create_channel(config: &RelayerConfig, connection: &str, port: &str) -> anyhow::Result<()> {
+async fn create_channel(_config: &RelayerConfig, connection: &str, port: &str) -> anyhow::Result<()> {
     info!("Create channel on {} for {}: Not implemented yet", connection, port);
     Ok(())
 }
 
-async fn show_status(config: &RelayerConfig) -> anyhow::Result<()> {
+async fn show_status(_config: &RelayerConfig) -> anyhow::Result<()> {
     info!("Relayer status: Not implemented yet");
     Ok(())
 }
