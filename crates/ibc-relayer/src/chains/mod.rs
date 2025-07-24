@@ -5,10 +5,13 @@ use async_trait::async_trait;
 use futures::Stream;
 
 pub mod near_simple;
+pub mod cosmos_minimal;
 
 // Re-export for easier access (will be used by relay engine)
 #[allow(unused_imports)]
 pub use near_simple::NearChain;
+#[allow(unused_imports)]
+pub use cosmos_minimal::CosmosChain;
 
 /// Generic chain interface for IBC operations
 #[async_trait]
