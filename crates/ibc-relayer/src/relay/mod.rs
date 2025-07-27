@@ -7,6 +7,18 @@ use crate::chains::{Chain, IbcPacket, ChainEvent};
 use crate::config::RelayerConfig;
 use crate::metrics::RelayerMetrics;
 
+// Sub-modules
+pub mod engine;
+pub mod packet;
+pub mod processor;
+pub mod proof;
+
+// Re-export enhanced types
+pub use engine::RelayEngine as EnhancedRelayEngine;
+pub use packet::{PacketLifecycle, PacketState, PacketMetadata, ProcessingTimes};
+pub use processor::PacketProcessor;
+pub use proof::ProofGenerator;
+
 /// Events that drive the relay engine
 #[derive(Debug, Clone)]
 pub enum RelayEvent {
