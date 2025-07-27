@@ -37,11 +37,11 @@ base64 = { workspace = true }
 toml = { workspace = true }
 clap = { workspace = true }
 
-# NEAR integration - use consistent versions
-near-jsonrpc-client = "0.8"
-near-jsonrpc-primitives = "0.21.2"
-near-primitives = "0.21.2"
-near-crypto = "0.21.2"
+# NEAR integration - use exact versions matching jsonrpc-client 0.17.0
+near-jsonrpc-client = "0.17.0"
+near-jsonrpc-primitives = "0.30.3"
+near-primitives = "0.30.3"
+near-crypto = "0.30.3"
 
 # Cosmos integration  
 cosmos-sdk-proto = "0.21"

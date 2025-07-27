@@ -22,8 +22,7 @@ Cargo.lock
 # Go workspace file
 go.work
 
-# Development changelog (session tracking)
-CHANGELOG.md
+# Note: CHANGELOG.md is now tracked to maintain development history
 
 # IDE files
 .vscode/
