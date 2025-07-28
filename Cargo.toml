@@ -1,0 +1,57 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "crates/ibc-relayer",
+]
+
+# Contract needs special handling due to WASM target
+exclude = [
+    "crates/cosmos-sdk-contract",
+]
+
+# Workspace-wide dependencies for consistency
+[workspace.dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+borsh = { version = "1.0", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Crypto
+sha2 = "0.10"
+ed25519-dalek = { version = "2.0", features = ["serde"] }
+hex = "0.4"
+
+# Time
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Base64 encoding
+base64 = "0.21"
+
+# Configuration
+toml = "0.8"
+clap = { version = "4.0", features = ["derive"] }
+
+# Testing
+near-workspaces = { version = "0.11", features = ["experimental"] }
+
+[workspace.metadata]
+authors = ["NEAR-Cosmos-SDK Contributors"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bpolania/NEAR-Cosmos-SDK"

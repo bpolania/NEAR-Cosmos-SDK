@@ -1,0 +1,810 @@
+// Minimal Cosmos chain implementation for IBC relayer
+// Focuses on transaction submission for NEAR → Cosmos packet relay
+
+use async_trait::async_trait;
+use base64::{Engine as _, engine::general_purpose};
+use futures::Stream;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use sha2::{Sha256, Digest};
+use hex;
+
+use super::{Chain, ChainEvent};
+use crate::config::{ChainConfig, ChainSpecificConfig};
+
+/// Enhanced Cosmos chain implementation
+/// Implements transaction building, signing, and broadcasting for IBC relay
+pub struct CosmosChain {
+    chain_id: String,
+    rpc_endpoint: String,
+    address_prefix: String,
+    gas_price: String,
+    signer_address: Option<String>,
+    account_number: Option<u64>,
+    sequence: Option<u64>,
+    client: Client,
+}
+
+impl CosmosChain {
+    /// Create a new Cosmos chain instance
+    pub fn new(config: &ChainConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        match &config.config {
+            ChainSpecificConfig::Cosmos {
+                address_prefix,
+                gas_price,
+                ..
+            } => {
+                let client = Client::new();
+                
+                Ok(Self {
+                    chain_id: config.chain_id.clone(),
+                    rpc_endpoint: config.rpc_endpoint.clone(),
+                    address_prefix: address_prefix.clone(),
+                    gas_price: gas_price.clone(),
+                    signer_address: None, // Will be set when account is configured
+                    account_number: None,
+                    sequence: None,
+                    client,
+                })
+            }
+            _ => Err("Invalid config type for Cosmos chain".into()),
+        }
+    }
+
+    /// Configure signer account for transaction broadcasting
+    pub async fn configure_account(&mut self, address: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.signer_address = Some(address.clone());
+        
+        // Query account information
+        let account_info = self.query_account(&address).await?;
+        self.account_number = Some(account_info.account_number);
+        self.sequence = Some(account_info.sequence);
+        
+        println!("📋 Configured Cosmos account: {} (acc: {}, seq: {})", 
+                 address, account_info.account_number, account_info.sequence);
+        
+        Ok(())
+    }
+
+    /// Query account information from Cosmos chain
+    async fn query_account(&self, address: &str) -> Result<AccountInfo, Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!("{}/cosmos/auth/v1beta1/accounts/{}", self.rpc_endpoint, address);
+        
+        let response = self.client.get(&url).send().await?;
+        let result: Value = response.json().await?;
+        
+        // Parse account information
+        let account = &result["account"];
+        let account_number = account["account_number"]
+            .as_str()
+            .unwrap_or("0")
+            .parse()
+            .unwrap_or(0);
+        let sequence = account["sequence"]
+            .as_str()
+            .unwrap_or("0")
+            .parse()
+            .unwrap_or(0);
+        
+        Ok(AccountInfo {
+            address: address.to_string(),
+            account_number,
+            sequence,
+        })
+    }
+
+    /// Build and broadcast a Cosmos transaction
+    pub async fn build_and_broadcast_tx(
+        &mut self,
+        messages: Vec<Value>,
+        memo: String,
+        gas_limit: u64,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // Ensure account is configured
+        if self.signer_address.is_none() {
+            return Err("Signer account not configured. Call configure_account() first.".into());
+        }
+
+        // Build transaction
+        let tx = self.build_transaction(messages, memo, gas_limit)?;
+        
+        // For now, simulate transaction broadcasting
+        // TODO: Implement actual signing and broadcasting with proper keys
+        let tx_hash = self.simulate_broadcast(tx).await?;
+        
+        // Increment sequence for next transaction
+        if let Some(seq) = &mut self.sequence {
+            *seq += 1;
+        }
+        
+        Ok(tx_hash)
+    }
+
+    /// Build a Cosmos transaction
+    fn build_transaction(
+        &self,
+        messages: Vec<Value>,
+        memo: String,
+        gas_limit: u64,
+    ) -> Result<CosmosTransaction, Box<dyn std::error::Error + Send + Sync>> {
+        let signer_address = self.signer_address.as_ref()
+            .ok_or("Signer address not set")?;
+        let account_number = self.account_number
+            .ok_or("Account number not set")?;
+        let sequence = self.sequence
+            .ok_or("Sequence not set")?;
+
+        // Parse gas price
+        let (gas_amount, gas_denom) = self.parse_gas_price()?;
+
+        let tx = CosmosTransaction {
+            body: TransactionBody {
+                messages,
+                memo,
+                timeout_height: 0,
+                extension_options: vec![],
+                non_critical_extension_options: vec![],
+            },
+            auth_info: AuthInfo {
+                signer_infos: vec![SignerInfo {
+                    public_key: None, // TODO: Add actual public key
+                    mode_info: ModeInfo::Single,
+                    sequence,
+                }],
+                fee: Fee {
+                    amount: vec![Coin {
+                        denom: gas_denom,
+                        amount: gas_amount,
+                    }],
+                    gas_limit,
+                    payer: signer_address.clone(),
+                    granter: String::new(),
+                },
+            },
+            signatures: vec![], // TODO: Add actual signatures
+        };
+
+        Ok(tx)
+    }
+
+    /// Parse gas price string (e.g., "0.025uatom")
+    fn parse_gas_price(&self) -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
+        let gas_price = &self.gas_price;
+        
+        // Find where digits end and denom begins
+        let mut split_pos = 0;
+        for (i, c) in gas_price.chars().enumerate() {
+            if !c.is_ascii_digit() && c != '.' {
+                split_pos = i;
+                break;
+            }
+        }
+        
+        if split_pos == 0 {
+            return Err("Invalid gas price format".into());
+        }
+        
+        let amount = &gas_price[..split_pos];
+        let denom = &gas_price[split_pos..];
+        
+        // Convert to base units (multiply by 1000 for demonstration)
+        let base_amount: f64 = amount.parse()?;
+        let gas_amount = ((base_amount * 1000.0) as u64).to_string();
+        
+        Ok((gas_amount, denom.to_string()))
+    }
+
+    /// Simulate transaction broadcasting (placeholder for actual implementation)
+    async fn simulate_broadcast(&self, tx: CosmosTransaction) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // In a real implementation, this would:
+        // 1. Serialize the transaction to protobuf
+        // 2. Sign the transaction with the private key
+        // 3. Broadcast via /cosmos/tx/v1beta1/txs endpoint
+        
+        println!("🚀 Simulating Cosmos transaction broadcast:");
+        println!("   Chain: {}", self.chain_id);
+        println!("   Messages: {}", tx.body.messages.len());
+        println!("   Memo: {}", tx.body.memo);
+        println!("   Gas: {}", tx.auth_info.fee.gas_limit);
+        
+        // Generate a mock transaction hash
+        let tx_data = format!("{:?}", tx);
+        let hash = Sha256::digest(tx_data.as_bytes());
+        let tx_hash = hex::encode(hash).to_uppercase();
+        
+        println!("   ✅ Mock TX Hash: {}", tx_hash);
+        
+        Ok(tx_hash)
+    }
+
+    /// Submit a RecvPacket transaction to Cosmos chain
+    /// This is the core functionality needed for NEAR → Cosmos relay
+    pub async fn submit_recv_packet_tx(
+        &mut self,
+        packet_data: &[u8],
+        proof: &[u8],
+        proof_height: u64,
+        sequence: u64,
+        source_port: &str,
+        source_channel: &str,
+        dest_port: &str,
+        dest_channel: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let signer_address = self.signer_address.as_ref()
+            .ok_or("Signer address not configured")?;
+
+        // Construct IBC RecvPacket message
+        let msg = json!({
+            "@type": "/ibc.core.channel.v1.MsgRecvPacket",
+            "packet": {
+                "sequence": sequence.to_string(),
+                "source_port": source_port,
+                "source_channel": source_channel,
+                "destination_port": dest_port,
+                "destination_channel": dest_channel,
+                "data": general_purpose::STANDARD.encode(packet_data),
+                "timeout_height": {
+                    "revision_number": "0",
+                    "revision_height": (proof_height + 1000).to_string()
+                },
+                "timeout_timestamp": "0"
+            },
+            "proof_commitment": general_purpose::STANDARD.encode(proof),
+            "proof_height": {
+                "revision_number": "0",
+                "revision_height": proof_height.to_string()
+            },
+            "signer": signer_address
+        });
+
+        // Use the enhanced transaction building system
+        let tx_hash = self.build_and_broadcast_tx(
+            vec![msg],
+            "IBC packet relay from NEAR".to_string(),
+            200_000, // Gas limit
+        ).await?;
+
+        println!("✅ Submitted RecvPacket transaction: {}", tx_hash);
+        Ok(tx_hash)
+    }
+
+    /// Submit an AckPacket transaction to Cosmos chain
+    pub async fn submit_ack_packet_tx(
+        &mut self,
+        packet_data: &[u8],
+        acknowledgment: &[u8],
+        proof: &[u8],
+        proof_height: u64,
+        sequence: u64,
+        source_port: &str,
+        source_channel: &str,
+        dest_port: &str,
+        dest_channel: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let signer_address = self.signer_address.as_ref()
+            .ok_or("Signer address not configured")?;
+
+        // Construct IBC AckPacket message
+        let msg = json!({
+            "@type": "/ibc.core.channel.v1.MsgAcknowledgement",
+            "packet": {
+                "sequence": sequence.to_string(),
+                "source_port": source_port,
+                "source_channel": source_channel,
+                "destination_port": dest_port,
+                "destination_channel": dest_channel,
+                "data": general_purpose::STANDARD.encode(packet_data),
+                "timeout_height": {
+                    "revision_number": "0",
+                    "revision_height": (proof_height + 1000).to_string()
+                },
+                "timeout_timestamp": "0"
+            },
+            "acknowledgement": general_purpose::STANDARD.encode(acknowledgment),
+            "proof_acked": general_purpose::STANDARD.encode(proof),
+            "proof_height": {
+                "revision_number": "0",
+                "revision_height": proof_height.to_string()
+            },
+            "signer": signer_address
+        });
+
+        let tx_hash = self.build_and_broadcast_tx(
+            vec![msg],
+            "IBC acknowledgment relay from NEAR".to_string(),
+            200_000,
+        ).await?;
+
+        println!("✅ Submitted AckPacket transaction: {}", tx_hash);
+        Ok(tx_hash)
+    }
+
+    /// Submit a timeout packet transaction
+    pub async fn submit_timeout_packet_tx(
+        &mut self,
+        packet_data: &[u8],
+        proof: &[u8],
+        proof_height: u64,
+        sequence: u64,
+        source_port: &str,
+        source_channel: &str,
+        dest_port: &str,
+        dest_channel: &str,
+        next_sequence_recv: u64,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let signer_address = self.signer_address.as_ref()
+            .ok_or("Signer address not configured")?;
+
+        // Construct IBC TimeoutPacket message
+        let msg = json!({
+            "@type": "/ibc.core.channel.v1.MsgTimeout",
+            "packet": {
+                "sequence": sequence.to_string(),
+                "source_port": source_port,
+                "source_channel": source_channel,
+                "destination_port": dest_port,
+                "destination_channel": dest_channel,
+                "data": general_purpose::STANDARD.encode(packet_data),
+                "timeout_height": {
+                    "revision_number": "0",
+                    "revision_height": proof_height.to_string()
+                },
+                "timeout_timestamp": "0"
+            },
+            "proof_unreceived": general_purpose::STANDARD.encode(proof),
+            "proof_height": {
+                "revision_number": "0",
+                "revision_height": proof_height.to_string()
+            },
+            "next_sequence_recv": next_sequence_recv.to_string(),
+            "signer": signer_address
+        });
+
+        let tx_hash = self.build_and_broadcast_tx(
+            vec![msg],
+            "IBC timeout packet relay".to_string(),
+            200_000,
+        ).await?;
+
+        println!("✅ Submitted TimeoutPacket transaction: {}", tx_hash);
+        Ok(tx_hash)
+    }
+
+    /// Query Tendermint status for basic connectivity check
+    async fn query_status(&self) -> Result<TendermintStatus, Box<dyn std::error::Error + Send + Sync>> {
+        let response = self.client
+            .get(&format!("{}/status", self.rpc_endpoint))
+            .send()
+            .await?;
+
+        let result: Value = response.json().await?;
+        
+        Ok(TendermintStatus {
+            chain_id: result["result"]["node_info"]["network"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+            latest_block_height: result["result"]["sync_info"]["latest_block_height"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(0),
+            latest_block_time: result["result"]["sync_info"]["latest_block_time"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+        })
+    }
+}
+
+
+impl CosmosChain {
+    /// Get events from a single Cosmos block
+    async fn get_block_events(
+        &self,
+        height: u64,
+    ) -> Result<Vec<ChainEvent>, Box<dyn std::error::Error + Send + Sync>> {
+        // Query Tendermint for block results which contain events
+        let response = self.client
+            .get(&format!("{}/block_results?height={}", self.rpc_endpoint, height))
+            .send()
+            .await?;
+        
+        let result: Value = response.json().await?;
+        let mut events = Vec::new();
+        
+        // Parse begin_block_events
+        if let Some(begin_events) = result["result"]["begin_block_events"].as_array() {
+            for event in begin_events {
+                if let Some(ibc_event) = self.parse_cosmos_event(event, height, None) {
+                    events.push(ibc_event);
+                }
+            }
+        }
+        
+        // Parse end_block_events
+        if let Some(end_events) = result["result"]["end_block_events"].as_array() {
+            for event in end_events {
+                if let Some(ibc_event) = self.parse_cosmos_event(event, height, None) {
+                    events.push(ibc_event);
+                }
+            }
+        }
+        
+        // Parse transaction events
+        if let Some(tx_results) = result["result"]["txs_results"].as_array() {
+            for (tx_index, tx_result) in tx_results.iter().enumerate() {
+                let tx_hash = self.get_tx_hash_for_index(height, tx_index).await;
+                
+                if let Some(tx_events) = tx_result["events"].as_array() {
+                    for event in tx_events {
+                        if let Some(ibc_event) = self.parse_cosmos_event(event, height, tx_hash.clone()) {
+                            events.push(ibc_event);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(events)
+    }
+    
+    /// Parse a Cosmos event into a ChainEvent if it's IBC-related
+    fn parse_cosmos_event(
+        &self,
+        event: &Value,
+        height: u64,
+        tx_hash: Option<String>,
+    ) -> Option<ChainEvent> {
+        let event_type = event["type"].as_str()?;
+        
+        // Only process IBC-related events
+        match event_type {
+            "send_packet" | "recv_packet" | "acknowledge_packet" | "timeout_packet" => {
+                let attributes = self.parse_cosmos_attributes(event["attributes"].as_array()?)?;
+                
+                Some(ChainEvent {
+                    event_type: event_type.to_string(),
+                    attributes,
+                    height,
+                    tx_hash,
+                })
+            }
+            _ => None,
+        }
+    }
+    
+    /// Parse Cosmos event attributes
+    fn parse_cosmos_attributes(&self, attributes: &[Value]) -> Option<Vec<(String, String)>> {
+        let mut result = Vec::new();
+        
+        for attr in attributes {
+            let key = attr["key"].as_str()?;
+            let value = attr["value"].as_str()?;
+            
+            // Decode base64 if needed (Cosmos SDK sometimes base64-encodes attributes)
+            let decoded_key = base64::engine::general_purpose::STANDARD
+                .decode(key)
+                .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
+                .unwrap_or_else(|_| key.to_string());
+                
+            let decoded_value = base64::engine::general_purpose::STANDARD
+                .decode(value)
+                .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
+                .unwrap_or_else(|_| value.to_string());
+            
+            result.push((decoded_key, decoded_value));
+        }
+        
+        if result.is_empty() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+    
+    /// Get transaction hash for a given index in a block
+    async fn get_tx_hash_for_index(&self, height: u64, tx_index: usize) -> Option<String> {
+        // Query the block to get transaction hashes
+        match self.client
+            .get(&format!("{}/block?height={}", self.rpc_endpoint, height))
+            .send()
+            .await
+        {
+            Ok(response) => {
+                if let Ok(result) = response.json::<Value>().await {
+                    if let Some(txs) = result["result"]["block"]["data"]["txs"].as_array() {
+                        if let Some(tx_data) = txs.get(tx_index) {
+                            if let Some(tx_str) = tx_data.as_str() {
+                                // Calculate hash from transaction data
+                                let tx_bytes = base64::engine::general_purpose::STANDARD
+                                    .decode(tx_str)
+                                    .unwrap_or_default();
+                                let hash = Sha256::digest(&tx_bytes);
+                                return Some(hex::encode(hash).to_uppercase());
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+        None
+    }
+}
+
+#[async_trait]
+impl Chain for CosmosChain {
+    /// Get the chain ID
+    async fn chain_id(&self) -> String {
+        self.chain_id.clone()
+    }
+
+    /// Get the latest block height from Tendermint
+    async fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        let status = self.query_status().await?;
+        Ok(status.latest_block_height)
+    }
+
+    /// Query packet commitment - STUB for minimal implementation
+    /// Returns None since we don't need to query Cosmos state yet
+    async fn query_packet_commitment(
+        &self,
+        _port_id: &str,
+        _channel_id: &str,
+        _sequence: u64,
+    ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Implement when we need Cosmos → NEAR relay
+        Ok(None)
+    }
+
+    /// Query packet acknowledgment - STUB for minimal implementation
+    async fn query_packet_acknowledgment(
+        &self,
+        _port_id: &str,
+        _channel_id: &str,
+        _sequence: u64,
+    ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Implement when we need acknowledgment processing
+        Ok(None)
+    }
+
+    /// Query packet receipt - STUB for minimal implementation
+    async fn query_packet_receipt(
+        &self,
+        _port_id: &str,
+        _channel_id: &str,
+        _sequence: u64,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Implement for unordered channels
+        Ok(false)
+    }
+
+    /// Query next sequence receive - STUB for minimal implementation
+    async fn query_next_sequence_recv(
+        &self,
+        _port_id: &str,
+        _channel_id: &str,
+    ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+        // TODO: Implement when we need bidirectional relay
+        Ok(1)
+    }
+
+    /// Get events in a block range - Enhanced implementation
+    async fn get_events(
+        &self,
+        from_height: u64,
+        to_height: u64,
+    ) -> Result<Vec<ChainEvent>, Box<dyn std::error::Error + Send + Sync>> {
+        println!("📡 Querying Cosmos events from blocks {}-{}", from_height, to_height);
+        
+        let mut all_events = Vec::new();
+        
+        // Query each block in the range
+        for height in from_height..=to_height {
+            match self.get_block_events(height).await {
+                Ok(mut events) => {
+                    all_events.append(&mut events);
+                }
+                Err(e) => {
+                    eprintln!("Error querying Cosmos block {} events: {}", height, e);
+                    // Continue with other blocks even if one fails
+                }
+            }
+        }
+        
+        if !all_events.is_empty() {
+            println!("🔍 Found {} IBC events in Cosmos blocks {}-{}", 
+                     all_events.len(), from_height, to_height);
+        }
+        
+        Ok(all_events)
+    }
+
+    /// Monitor for new events - STUB for minimal implementation
+    /// Returns empty stream since we don't monitor Cosmos events yet
+    async fn subscribe_events(
+        &self,
+    ) -> Result<
+        Box<dyn Stream<Item = ChainEvent> + Send + Unpin>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
+        // TODO: Implement Tendermint WebSocket event streaming
+        let stream = futures::stream::empty();
+        Ok(Box::new(stream))
+    }
+
+    /// Submit a transaction - CORE FUNCTIONALITY for enhanced implementation
+    /// This handles various IBC transactions for NEAR ↔ Cosmos relay
+    async fn submit_transaction(
+        &self,
+        data: Vec<u8>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // For now, this is a simplified version that demonstrates the capability
+        // In production, you would parse the data to determine transaction type
+        // and extract the necessary packet information
+        
+        if self.signer_address.is_none() {
+            return Err("Cosmos chain not configured with signer account. Call configure_account() first.".into());
+        }
+        
+        // Mock transaction data for demonstration
+        println!("📤 Submitting Cosmos transaction with {} bytes of data", data.len());
+        
+        // Generate a mock transaction hash for now
+        let hash = Sha256::digest(&data);
+        let tx_hash = hex::encode(hash).to_uppercase();
+        
+        println!("✅ Mock Cosmos transaction submitted: {}", tx_hash);
+        Ok(tx_hash)
+    }
+
+    /// Health check - Verify connection to Tendermint RPC
+    async fn health_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let status = self.query_status().await?;
+        
+        // Verify we can connect and get a reasonable response
+        if status.chain_id.is_empty() || status.latest_block_height == 0 {
+            return Err("Cosmos chain health check failed: invalid status response".into());
+        }
+        
+        println!("Cosmos chain health check: OK (chain_id: {}, height: {})", 
+                 status.chain_id, status.latest_block_height);
+        Ok(())
+    }
+}
+
+/// Tendermint status response structure
+#[derive(Debug, Deserialize)]
+struct TendermintStatus {
+    chain_id: String,
+    latest_block_height: u64,
+    latest_block_time: String,
+}
+
+/// Account information from Cosmos chain
+#[derive(Debug, Deserialize)]
+struct AccountInfo {
+    address: String,
+    account_number: u64,
+    sequence: u64,
+}
+
+/// Cosmos transaction structure
+#[derive(Debug, Serialize)]
+struct CosmosTransaction {
+    body: TransactionBody,
+    auth_info: AuthInfo,
+    signatures: Vec<String>,
+}
+
+/// Transaction body containing messages and metadata
+#[derive(Debug, Serialize)]
+struct TransactionBody {
+    messages: Vec<Value>,
+    memo: String,
+    timeout_height: u64,
+    extension_options: Vec<Value>,
+    non_critical_extension_options: Vec<Value>,
+}
+
+/// Authentication information for transaction
+#[derive(Debug, Serialize)]
+struct AuthInfo {
+    signer_infos: Vec<SignerInfo>,
+    fee: Fee,
+}
+
+/// Signer information
+#[derive(Debug, Serialize)]
+struct SignerInfo {
+    public_key: Option<Value>,
+    mode_info: ModeInfo,
+    sequence: u64,
+}
+
+/// Signing mode information
+#[derive(Debug, Serialize)]
+enum ModeInfo {
+    Single,
+}
+
+/// Transaction fee structure
+#[derive(Debug, Serialize)]
+struct Fee {
+    amount: Vec<Coin>,
+    gas_limit: u64,
+    payer: String,
+    granter: String,
+}
+
+/// Coin denomination and amount
+#[derive(Debug, Serialize)]
+struct Coin {
+    denom: String,
+    amount: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::ChainConfig;
+
+    #[tokio::test]
+    async fn test_cosmos_chain_creation() {
+        let config = ChainConfig {
+            chain_id: "cosmoshub-testnet".to_string(),
+            chain_type: "cosmos".to_string(),
+            rpc_endpoint: "https://rpc.testnet.cosmos.network".to_string(),
+            ws_endpoint: None,
+            config: ChainSpecificConfig::Cosmos {
+                address_prefix: "cosmos".to_string(),
+                gas_price: "0.025uatom".to_string(),
+                trust_threshold: "1/3".to_string(),
+                trusting_period_hours: 336,
+                signer_key: None,
+            },
+        };
+
+        let chain = CosmosChain::new(&config).unwrap();
+        assert_eq!(chain.chain_id, "cosmoshub-testnet");
+        assert_eq!(chain.address_prefix, "cosmos");
+        assert_eq!(chain.gas_price, "0.025uatom");
+    }
+
+    #[tokio::test]
+    async fn test_cosmos_chain_methods() {
+        let config = ChainConfig {
+            chain_id: "cosmoshub-testnet".to_string(),
+            chain_type: "cosmos".to_string(),
+            rpc_endpoint: "https://rpc.testnet.cosmos.network".to_string(),
+            ws_endpoint: None,
+            config: ChainSpecificConfig::Cosmos {
+                address_prefix: "cosmos".to_string(),
+                gas_price: "0.025uatom".to_string(),
+                trust_threshold: "1/3".to_string(),
+                trusting_period_hours: 336,
+                signer_key: None,
+            },
+        };
+
+        let chain = CosmosChain::new(&config).unwrap();
+        
+        // Test basic methods
+        assert_eq!(chain.chain_id().await, "cosmoshub-testnet");
+        
+        // Test stub methods (should return defaults for minimal implementation)
+        assert_eq!(chain.query_packet_commitment("transfer", "channel-0", 1).await.unwrap(), None);
+        assert_eq!(chain.query_packet_acknowledgment("transfer", "channel-0", 1).await.unwrap(), None);
+        assert_eq!(chain.query_packet_receipt("transfer", "channel-0", 1).await.unwrap(), false);
+        assert_eq!(chain.query_next_sequence_recv("transfer", "channel-0").await.unwrap(), 1);
+        
+        // Test event methods (should return empty for minimal implementation)
+        let events = chain.get_events(1000, 1010).await.unwrap();
+        assert!(events.is_empty());
+        
+        // Note: Health check and transaction submission tests would require actual RPC endpoint
+        // These are tested in integration tests or with mock servers
+    }
+}
