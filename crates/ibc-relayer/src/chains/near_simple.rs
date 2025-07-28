@@ -132,6 +132,170 @@ impl NearChain {
     }
 }
 
+
+impl NearChain {
+    /// Get events from a single NEAR block
+    async fn get_block_events(
+        &self,
+        height: u64,
+    ) -> Result<Vec<ChainEvent>, Box<dyn std::error::Error + Send + Sync>> {
+        // Get block with transaction details
+        let block_request = methods::block::RpcBlockRequest {
+            block_reference: near_primitives::types::BlockReference::BlockId(
+                near_primitives::types::BlockId::Height(height)
+            ),
+        };
+        
+        let _block_response = self.rpc_client.call(block_request).await
+            .map_err(|e| format!("Failed to get block {}: {}", height, e))?;
+        
+        let events = Vec::new();
+        
+        // For now, we'll parse transactions differently since the NEAR SDK structure is complex
+        // TODO: Implement proper transaction parsing for IBC events
+        // This is a placeholder that demonstrates the concept
+        
+        Ok(events)
+    }
+    
+    /// Get IBC events from a specific transaction
+    async fn get_transaction_events(
+        &self,
+        tx_hash: &str,
+        block_height: u64,
+    ) -> Result<Vec<ChainEvent>, Box<dyn std::error::Error + Send + Sync>> {
+        // This is a simplified version - in production, you would query transaction details
+        // and parse the logs for IBC events
+        
+        // For now, return empty vector as a placeholder
+        // TODO: Implement proper NEAR transaction log parsing
+        let _events: Vec<ChainEvent> = Vec::new();
+        
+        // Placeholder for demonstration
+        println!("📝 Would parse transaction {} for IBC events at height {}", tx_hash, block_height);
+        
+        Ok(vec![])
+    }
+    
+    /// Parse a NEAR contract log for IBC events
+    fn parse_log_for_ibc_event(
+        &self,
+        log: &str,
+        block_height: u64,
+        tx_hash: Option<String>,
+    ) -> Option<ChainEvent> {
+        // Look for IBC event patterns in NEAR contract logs
+        // Expected format: "EVENT_JSON:{\"type\":\"send_packet\", \"attributes\": {...}}"
+        
+        if let Some(json_str) = log.strip_prefix("EVENT_JSON:") {
+            if let Ok(event_data) = serde_json::from_str::<serde_json::Value>(json_str) {
+                let event_type = event_data["type"].as_str()?;
+                
+                // Only process IBC-related events
+                match event_type {
+                    "send_packet" | "recv_packet" | "acknowledge_packet" | "timeout_packet" => {
+                        let attributes = self.parse_event_attributes(&event_data["attributes"])?;
+                        
+                        return Some(ChainEvent {
+                            event_type: event_type.to_string(),
+                            attributes,
+                            height: block_height,
+                            tx_hash,
+                        });
+                    }
+                    _ => return None,
+                }
+            }
+        }
+        
+        // Also check for simple log patterns
+        if log.contains("IBC_PACKET_SEND") {
+            // Parse simple packet send logs
+            if let Some(attributes) = self.parse_simple_packet_log(log, "send") {
+                return Some(ChainEvent {
+                    event_type: "send_packet".to_string(),
+                    attributes,
+                    height: block_height,
+                    tx_hash,
+                });
+            }
+        } else if log.contains("IBC_PACKET_RECV") {
+            if let Some(attributes) = self.parse_simple_packet_log(log, "recv") {
+                return Some(ChainEvent {
+                    event_type: "recv_packet".to_string(),
+                    attributes,
+                    height: block_height,
+                    tx_hash,
+                });
+            }
+        } else if log.contains("IBC_PACKET_ACK") {
+            if let Some(attributes) = self.parse_simple_packet_log(log, "ack") {
+                return Some(ChainEvent {
+                    event_type: "acknowledge_packet".to_string(),
+                    attributes,
+                    height: block_height,
+                    tx_hash,
+                });
+            }
+        }
+        
+        None
+    }
+    
+    /// Parse event attributes from JSON
+    fn parse_event_attributes(&self, attributes: &serde_json::Value) -> Option<Vec<(String, String)>> {
+        let obj = attributes.as_object()?;
+        let mut result = Vec::new();
+        
+        for (key, value) in obj {
+            let value_str = match value {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Number(n) => n.to_string(),
+                serde_json::Value::Bool(b) => b.to_string(),
+                _ => value.to_string(),
+            };
+            result.push((key.clone(), value_str));
+        }
+        
+        Some(result)
+    }
+    
+    /// Parse simple packet log format
+    fn parse_simple_packet_log(&self, log: &str, event_type: &str) -> Option<Vec<(String, String)>> {
+        // Expected format: "IBC_PACKET_SEND: seq=1 port=transfer channel=channel-0 data=..."
+        let mut attributes = Vec::new();
+        
+        // Split the log and parse key=value pairs
+        let parts: Vec<&str> = log.split_whitespace().collect();
+        for part in parts.iter().skip(1) { // Skip the event prefix
+            if let Some((key, value)) = part.split_once('=') {
+                match key {
+                    "seq" => attributes.push(("packet_sequence".to_string(), value.to_string())),
+                    "port" => attributes.push(("packet_src_port".to_string(), value.to_string())),
+                    "channel" => attributes.push(("packet_src_channel".to_string(), value.to_string())),
+                    "data" => attributes.push(("packet_data".to_string(), value.to_string())),
+                    "dst_port" => attributes.push(("packet_dst_port".to_string(), value.to_string())),
+                    "dst_channel" => attributes.push(("packet_dst_channel".to_string(), value.to_string())),
+                    "ack" => attributes.push(("packet_ack".to_string(), value.to_string())),
+                    _ => {} // Ignore unknown attributes
+                }
+            }
+        }
+        
+        // Add default destination info if not present (for NEAR -> Cosmos flow)
+        if event_type == "send" && !attributes.iter().any(|(k, _)| k == "packet_dst_port") {
+            attributes.push(("packet_dst_port".to_string(), "transfer".to_string()));
+            attributes.push(("packet_dst_channel".to_string(), "channel-1".to_string()));
+        }
+        
+        if attributes.is_empty() {
+            None
+        } else {
+            Some(attributes)
+        }
+    }
+}
+
 #[async_trait]
 impl Chain for NearChain {
     /// Get the chain ID
@@ -141,17 +305,24 @@ impl Chain for NearChain {
 
     /// Get the latest block height
     async fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
-        let request = methods::block::RpcBlockRequest {
-            block_reference: BlockReference::latest(),
-        };
-        
-        let response = self.rpc_client.call(request).await
-            .map_err(|e| format!("Failed to get latest block: {}", e))?;
-        
-        Ok(response.header.height)
+        // Try to get status, but handle API format changes gracefully
+        match self.rpc_client.call(methods::status::RpcStatusRequest).await {
+            Ok(response) => Ok(response.sync_info.latest_block_height),
+            Err(e) => {
+                // If status fails, try getting a recent block instead
+                println!("⚠️  NEAR status query failed, trying alternative method: {}", e);
+                let block_request = methods::block::RpcBlockRequest {
+                    block_reference: BlockReference::latest(),
+                };
+                match self.rpc_client.call(block_request).await {
+                    Ok(block_response) => Ok(block_response.header.height),
+                    Err(block_e) => Err(format!("Failed to get NEAR height via status or block: status={}, block={}", e, block_e).into())
+                }
+            }
+        }
     }
 
-    /// Query packet commitment from the deployed IBC contract
+    /// Query packet commitment using NEAR state
     async fn query_packet_commitment(
         &self,
         port_id: &str,
@@ -166,14 +337,12 @@ impl Chain for NearChain {
         
         match self.call_contract_view("query_packet_commitment", args).await {
             Ok(result) => {
-                // Parse the result as JSON to get the commitment data
                 let parsed: serde_json::Value = serde_json::from_slice(&result)
                     .map_err(|e| format!("Failed to parse commitment result: {}", e))?;
                 
                 if parsed.is_null() {
                     Ok(None)
                 } else {
-                    // Convert the commitment to bytes
                     let commitment_str = parsed.as_str()
                         .ok_or("Commitment is not a string")?;
                     let commitment_bytes = hex::decode(commitment_str)
@@ -182,14 +351,13 @@ impl Chain for NearChain {
                 }
             }
             Err(e) => {
-                // If the contract method doesn't exist or packet not found, return None
                 println!("Query packet commitment failed: {}", e);
                 Ok(None)
             }
         }
     }
 
-    /// Query packet acknowledgment from the deployed IBC contract
+    /// Query packet acknowledgment from NEAR state
     async fn query_packet_acknowledgment(
         &self,
         port_id: &str,
@@ -279,11 +447,32 @@ impl Chain for NearChain {
     /// Get events in a block range
     async fn get_events(
         &self,
-        _from_height: u64,
-        _to_height: u64,
+        from_height: u64,
+        to_height: u64,
     ) -> Result<Vec<ChainEvent>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement event querying from NEAR blocks
-        Ok(vec![])
+        println!("📡 Querying NEAR events from blocks {}-{}", from_height, to_height);
+        
+        let mut all_events = Vec::new();
+        
+        // Query each block in the range
+        for height in from_height..=to_height {
+            match self.get_block_events(height).await {
+                Ok(mut events) => {
+                    all_events.append(&mut events);
+                }
+                Err(e) => {
+                    eprintln!("Error querying block {} events: {}", height, e);
+                    // Continue with other blocks even if one fails
+                }
+            }
+        }
+        
+        if !all_events.is_empty() {
+            println!("🔍 Found {} IBC events in NEAR blocks {}-{}", 
+                     all_events.len(), from_height, to_height);
+        }
+        
+        Ok(all_events)
     }
 
     /// Monitor for new events (streaming)
