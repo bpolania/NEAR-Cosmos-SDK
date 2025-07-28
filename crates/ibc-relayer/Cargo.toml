@@ -48,6 +48,9 @@ cosmos-sdk-proto = "0.21"
 tendermint = "0.34"
 tendermint-rpc = "0.34"
 tendermint-proto = "0.34"
+secp256k1 = { version = "0.28", features = ["hashes"] }
+prost = "0.12"
+prost-types = "0.12"
 
 # Metrics and monitoring
 prometheus = { version = "0.13", optional = true }
