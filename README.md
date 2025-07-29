@@ -450,3 +450,41 @@ This relayer implementation enables real-world cross-chain communication between
 
 **Production Ready:**
 The unified contract provides a complete Cosmos SDK runtime on NEAR with full cross-chain capabilities, ready for integration with IBC relayers and Cosmos ecosystem chains.
+
+## Testnet Deployment
+
+The IBC relayer is ready for testnet deployment with full cross-chain capabilities:
+
+### Prerequisites
+1. **Smart Contract**: Already deployed to `cosmos-sdk-demo.testnet`
+2. **Testnet Keys**: Set up via environment variables:
+   ```bash
+   export RELAYER_KEY_PROVIDER="cosmos1addr:hexPrivateKey"
+   export RELAYER_KEY_NEAR_TESTNET="account.testnet:ed25519:base58Key"
+   ```
+
+### Deployment Steps
+```bash
+# Navigate to relayer directory
+cd crates/ibc-relayer
+
+# Run tests to verify setup
+cargo test
+
+# Start the relayer
+cargo run -- start
+
+# Monitor relay operations
+tail -f logs/relayer.log
+```
+
+### Configuration
+The relayer is configured for testnet in `config/relayer.toml`:
+- **NEAR Testnet**: Connected to `cosmos-sdk-demo.testnet`
+- **Cosmos Provider**: Connected to ICS testnet `provider` chain
+- **Key Management**: Secure keystore with encrypted storage
+
+### Monitoring
+- **Prometheus Metrics**: Available at `http://localhost:9090/metrics`
+- **Health Check**: `cargo run -- status`
+- **Logs**: Structured JSON logs for production monitoring

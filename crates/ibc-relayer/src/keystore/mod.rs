@@ -122,9 +122,16 @@ impl KeyManager {
         }
         
         // Try loading from keystore
-        let key = self.storage.load_key(chain_id).await?;
-        self.key_cache.insert(chain_id.to_string(), key.clone());
-        Ok(key)
+        match self.storage.load_key(chain_id).await {
+            Ok(key) => {
+                self.key_cache.insert(chain_id.to_string(), key.clone());
+                Ok(key)
+            },
+            Err(_) => {
+                // Keystore failed, return NotFound error
+                Err(KeyError::NotFound(chain_id.to_string()))
+            }
+        }
     }
     
     /// Store a key for the given chain ID with encryption
@@ -161,7 +168,7 @@ impl KeyManager {
     
     /// Load a key from environment variable
     async fn load_from_env(&self, chain_id: &str) -> Result<KeyEntry, KeyError> {
-        let env_var = format!("{}{}", self.config.env_prefix, chain_id.to_uppercase());
+        let env_var = format!("{}{}", self.config.env_prefix, chain_id.to_uppercase().replace("-", "_"));
         
         let key_data = std::env::var(&env_var)
             .map_err(|_| KeyError::EnvVarNotFound(env_var.clone()))?;
@@ -169,7 +176,7 @@ impl KeyManager {
         // Determine key type based on chain ID
         if chain_id.contains("near") {
             Ok(KeyEntry::Near(NearKey::from_env_string(&key_data)?))
-        } else if chain_id.contains("cosmos") || chain_id.contains("hub") {
+        } else if chain_id.contains("cosmos") || chain_id.contains("hub") || chain_id == "provider" {
             Ok(KeyEntry::Cosmos(CosmosKey::from_env_string(&key_data)?))
         } else {
             Err(KeyError::InvalidFormat(

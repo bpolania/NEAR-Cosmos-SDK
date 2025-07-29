@@ -22,9 +22,9 @@ network_id = "testnet"
 
 [chains.cosmoshub-testnet]
 chain_type = "cosmos"
-chain_id = "theta-testnet-001"
-rpc_endpoint = "https://rpc.sentry-01.theta-testnet.polypore.xyz"
-ws_endpoint = "wss://rpc.sentry-01.theta-testnet.polypore.xyz/websocket"
+chain_id = "provider"
+rpc_endpoint = "https://rest.provider-sentry-01.ics-testnet.polypore.xyz"
+ws_endpoint = "wss://rpc.provider-sentry-01.ics-testnet.polypore.xyz/websocket"
 
 [chains.cosmoshub-testnet.config]
 type = "cosmos"
@@ -32,7 +32,7 @@ address_prefix = "cosmos"
 gas_price = "0.025uatom"
 trust_threshold = "1/3"
 trusting_period_hours = 336  # 14 days
-# signer_key = "..." # Set via environment variable
+# Keys will be loaded from encrypted keystore
 
 # Connection configurations
 [[connections]]
