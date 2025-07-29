@@ -4,6 +4,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod chains;
+mod keystore;
 mod relay;
 mod metrics;
 

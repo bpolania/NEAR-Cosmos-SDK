@@ -59,36 +59,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut cosmos_chain = CosmosChain::new(&chain_config)?;
     println!("✅ Cosmos chain instance created");
     
-    // 4. Simulate keystore integration (method temporarily disabled due to module issues)
+    // 4. Configure chain using keystore integration
     println!("\n🔐 Demonstrating keystore integration workflow...");
     
-    // Load the key from keystore to show the integration pattern
-    match key_manager.load_key("cosmoshub-testnet").await {
-        Ok(ibc_relayer::keystore::KeyEntry::Cosmos(cosmos_key)) => {
-            // In production, this would call configure_account_with_keystore()
-            // For now, demonstrate the workflow with direct key configuration
-            match cosmos_chain.configure_account_with_key(
-                cosmos_key.address.clone(),
-                cosmos_key.private_key_hex()
-            ).await {
-                Ok(()) => {
-                    println!("✅ Successfully configured Cosmos chain account from keystore!");
-                    println!("   Chain is now ready for transaction signing and broadcasting");
-                    println!("   Address: {}", cosmos_key.address);
-                }
-                Err(e) => {
-                    println!("❌ Failed to configure account: {}", e);
-                    return Err(e.into());
-                }
-            }
-        }
-        Ok(_) => {
-            println!("❌ Found non-Cosmos key in keystore");
-            return Err("Expected Cosmos key".into());
+    // Load the key from keystore and configure the chain
+    match cosmos_chain.configure_account_with_keystore("cosmoshub-testnet", &mut key_manager).await {
+        Ok(()) => {
+            println!("✅ Successfully configured Cosmos chain account from keystore!");
+            println!("   Chain is now ready for transaction signing and broadcasting");
+            
+            // Get the configured address for display
+            let address = key_manager.get_address("cosmoshub-testnet")
+                .unwrap_or_else(|_| "Unknown address".to_string());
+            println!("   Address: {}", address);
         }
         Err(e) => {
-            println!("❌ Failed to load key from keystore: {}", e);
-            return Err(e.into());
+            println!("❌ Failed to configure account with keystore: {}", e);
+            return Err(e);
         }
     }
     
@@ -96,7 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("\n📋 Available configuration methods:");
     println!("   1. configure_account() - legacy method, no private key (simulation only)");
     println!("   2. configure_account_with_key() - direct private key (less secure)");
-    println!("   3. configure_account_with_keystore() - NEW! Uses encrypted keystore (temporarily disabled)");
+    println!("   3. configure_account_with_keystore() - Uses encrypted keystore (production ready!)");
     
     // 6. Show that we can now build transactions
     println!("\n🚀 Testing transaction building with keystore-configured account...");
@@ -138,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("\n📋 Production Integration Steps:");
     println!("   1. Set up persistent keystore directory (e.g., ~/.relayer/keys)");
     println!("   2. Add keys using: cargo run --bin key-manager add <chain-id> --key-type cosmos");
-    println!("   3. Configure Cosmos chain with: chain.configure_account_with_keystore() [when available]");
+    println!("   3. Configure Cosmos chain with: chain.configure_account_with_keystore()");
     println!("   4. Chain is ready for real transaction signing and broadcasting");
     
     println!("\n🎯 Keystore integration example completed successfully!");

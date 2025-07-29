@@ -43,7 +43,7 @@ NEAR-Cosmos-SDK/          # Complete IBC Infrastructure Monorepo
 │       │   ├── relay/            # Core relay engine and proof generation
 │       │   ├── config/           # TOML configuration system
 │       │   └── metrics/          # Prometheus monitoring
-│       ├── tests/                # Relayer test suite (21 tests)
+│       ├── tests/                # Relayer test suite (168 tests)
 │       ├── config/               # Configuration files
 │       └── examples/             # Usage examples
 ├── Cargo.toml                    # Workspace configuration
@@ -323,7 +323,7 @@ cd crates/ibc-relayer
 # Build the relayer
 cargo build
 
-# Run tests (113 comprehensive tests with real NEAR integration)
+# Run tests (168 comprehensive tests with real NEAR integration)
 cargo test
 
 # Set up secure keystore for chain signing
