@@ -14,9 +14,17 @@ path = "src/lib.rs"
 name = "relayer"
 path = "src/main.rs"
 
+[[bin]]
+name = "key-manager"
+path = "src/bin/key-manager.rs"
+
 [[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
+
+[[example]]
+name = "cosmos_keystore_integration"
+path = "examples/cosmos_keystore_integration.rs"
 
 [dependencies]
 # Use workspace dependencies for consistency
@@ -51,6 +59,14 @@ tendermint-proto = "0.34"
 secp256k1 = { version = "0.28", features = ["hashes"] }
 prost = "0.12"
 prost-types = "0.12"
+
+# Encryption and key management
+aes-gcm = "0.10"
+argon2 = "0.5"
+bech32 = "0.9"
+shellexpand = "3.1"
+rand = "0.8"
+rpassword = "7.3"
 
 # Metrics and monitoring
 prometheus = { version = "0.13", optional = true }

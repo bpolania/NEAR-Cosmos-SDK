@@ -16,6 +16,8 @@ use prost::Message;
 
 use super::{Chain, ChainEvent};
 use crate::config::{ChainConfig, ChainSpecificConfig};
+// Temporarily commented out due to module resolution issue
+// use crate::keystore::{KeyManager, KeyEntry};
 
 /// Enhanced Cosmos chain implementation
 /// Implements transaction building, signing, and broadcasting for IBC relay
@@ -34,7 +36,7 @@ pub struct CosmosChain {
 
 impl CosmosChain {
     /// Create a new Cosmos chain instance
-    pub fn new(config: &ChainConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(config: &ChainConfig) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         match &config.config {
             ChainSpecificConfig::Cosmos {
                 address_prefix,
@@ -91,6 +93,40 @@ impl CosmosChain {
         
         Ok(())
     }
+    
+    // TODO: Re-enable once module resolution issue is fixed
+    /*
+    /// Configure signer account using keystore for secure key management
+    pub async fn configure_account_with_keystore(
+        &mut self, 
+        chain_id: &str,
+        key_manager: &mut KeyManager,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Load key from keystore
+        let key_entry = key_manager.load_key(chain_id).await
+            .map_err(|e| format!("Failed to load key from keystore for {}: {}", chain_id, e))?;
+        
+        match key_entry {
+            KeyEntry::Cosmos(cosmos_key) => {
+                // Validate the key before using it
+                cosmos_key.validate()
+                    .map_err(|e| format!("Key validation failed: {}", e))?;
+                
+                // Configure the account with the key from keystore
+                self.configure_account_with_key(
+                    cosmos_key.address.clone(), 
+                    cosmos_key.private_key_hex()
+                ).await?;
+                
+                println!("✅ Successfully configured Cosmos account from keystore: {}", cosmos_key.address);
+                Ok(())
+            }
+            KeyEntry::Near(_) => {
+                Err(format!("Found NEAR key for chain_id '{}', expected Cosmos key", chain_id).into())
+            }
+        }
+    }
+    */
     
     /// Configure signer account for transaction broadcasting (legacy method)
     pub async fn configure_account(&mut self, address: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -1109,4 +1145,60 @@ mod tests {
         
         println!("✅ Transaction building test passed");
     }
+    
+    // TODO: Re-enable once module resolution issue is fixed
+    /*
+    #[tokio::test]
+    async fn test_cosmos_keystore_integration() {
+        use crate::keystore::{KeyManager, KeyManagerConfig, KeyEntry};
+        use crate::keystore::cosmos::CosmosKey;
+        use tempfile::tempdir;
+        
+        // Create temporary keystore
+        let temp_dir = tempdir().unwrap();
+        let config = KeyManagerConfig {
+            keystore_dir: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+        
+        let mut key_manager = KeyManager::new(config).unwrap();
+        
+        // Create and store a test key
+        let test_key = CosmosKey::from_private_key(
+            hex::decode("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef").unwrap(),
+            "cosmos"
+        ).unwrap();
+        
+        let key_entry = KeyEntry::Cosmos(test_key.clone());
+        key_manager.store_key("test-chain", key_entry, "test_password").await.unwrap();
+        
+        // Create Cosmos chain
+        let config = ChainConfig {
+            chain_id: "test-chain".to_string(),
+            chain_type: "cosmos".to_string(),
+            rpc_endpoint: "https://test.example.com".to_string(),
+            ws_endpoint: None,
+            config: ChainSpecificConfig::Cosmos {
+                address_prefix: "cosmos".to_string(),
+                gas_price: "0.025uatom".to_string(),
+                trust_threshold: "1/3".to_string(),
+                trusting_period_hours: 336,
+                signer_key: None,
+            },
+        };
+        
+        let mut chain = CosmosChain::new(&config).unwrap();
+        
+        // Test keystore integration
+        chain.configure_account_with_keystore("test-chain", &mut key_manager).await.unwrap();
+        
+        // Verify account is configured
+        assert!(chain.signer_address.is_some());
+        assert_eq!(chain.signer_address.unwrap(), test_key.address);
+        assert!(chain.private_key.is_some());
+        assert_eq!(chain.private_key.unwrap(), test_key.private_key);
+        
+        println!("✅ Keystore integration test passed");
+    }
+    */
 }

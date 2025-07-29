@@ -6,7 +6,7 @@ use ibc_relayer::config::{ChainConfig, ChainSpecificConfig};
 use serde_json::json;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("🔐 Cosmos Transaction Signing Example");
     
     // 1. Create chain configuration for Cosmos testnet
