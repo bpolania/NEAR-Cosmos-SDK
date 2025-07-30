@@ -16,7 +16,7 @@ rpc_endpoint = "https://rpc.testnet.near.org"
 type = "near"
 # Our deployed Cosmos SDK contract
 contract_id = "cosmos-sdk-demo.testnet"
-signer_account_id = "relayer.testnet"
+signer_account_id = "cuteharbor3573.testnet"
 network_id = "testnet"
 # private_key = "ed25519:..." # Set via environment variable
 
