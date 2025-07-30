@@ -110,6 +110,7 @@ RESULT=$(near call $CONTRACT_ID ibc_create_client "{
 if [[ "$RESULT" == *"client-0"* ]]; then
     echo "✅ IBC client created successfully!"
     echo "Client ID: client-0"
+    echo "Client type: 07-tendermint-0"
     
     # Verify the client was created
     echo "Verifying client state..."

@@ -12,6 +12,8 @@ use super::{RelayEvent, PacketKey};
 use super::scanner::{PacketScanner, ScannerConfig, ScanStats};
 use super::engine::{RelayEngine, RelayStats};
 use super::processor::PacketProcessor;
+use super::timeout::{TimeoutManager, TimeoutConfig, TimeoutStats};
+use super::bidirectional::{BidirectionalRelayManager, BidirectionalConfig, BidirectionalStats};
 
 /// Comprehensive packet relay coordinator
 pub struct PacketRelayCoordinator {
@@ -81,6 +83,43 @@ impl PacketRelayCoordinator {
             self.chains.clone(),
             self.metrics.clone(),
         );
+
+        // Create and start timeout manager
+        let timeout_config = TimeoutConfig {
+            check_interval: 30,    // Check every 30 seconds
+            grace_period: 300,     // 5 minute grace period
+            max_cleanup_retries: 3,
+            cleanup_retry_delay_ms: 5000,
+            max_completed_age_hours: 24,
+        };
+
+        let mut timeout_manager = TimeoutManager::new(
+            timeout_config,
+            self.config.clone(),
+            self.chains.clone(),
+            self.metrics.clone(),
+            self.event_sender.clone(),
+            self.shutdown_receiver.clone(),
+        );
+
+        // Create and start bidirectional relay manager
+        let bidirectional_config = BidirectionalConfig {
+            max_parallel_packets: 5,
+            sequence_window_size: 1000,
+            sequence_check_interval: 15,
+            max_out_of_order_wait: 300,
+            strict_ordering: true,
+            batch_size: 3,
+        };
+
+        let mut bidirectional_manager = BidirectionalRelayManager::new(
+            bidirectional_config,
+            self.config.clone(),
+            self.chains.clone(),
+            self.metrics.clone(),
+            self.event_sender.clone(),
+            self.shutdown_receiver.clone(),
+        );
         
         // Take the event receiver (we can only have one consumer)
         let event_receiver = self.event_receiver.take()
@@ -99,6 +138,18 @@ impl PacketRelayCoordinator {
             }
         });
         
+        let timeout_handle = task::spawn(async move {
+            if let Err(e) = timeout_manager.run().await {
+                eprintln!("Timeout manager error: {}", e);
+            }
+        });
+
+        let bidirectional_handle = task::spawn(async move {
+            if let Err(e) = bidirectional_manager.run().await {
+                eprintln!("Bidirectional relay manager error: {}", e);
+            }
+        });
+
         let coordinator_handle = task::spawn(async move {
             Self::run_event_dispatcher(event_receiver).await;
         });
@@ -112,6 +163,12 @@ impl PacketRelayCoordinator {
             }
             _ = engine_handle => {
                 println!("⚙️  Relay engine completed");
+            }
+            _ = timeout_handle => {
+                println!("⏰ Timeout manager completed");
+            }
+            _ = bidirectional_handle => {
+                println!("🔄 Bidirectional relay manager completed");
             }
             _ = coordinator_handle => {
                 println!("🎯 Event coordinator completed");
@@ -191,6 +248,8 @@ impl PacketRelayCoordinator {
             event_channel_capacity: 10000, // Our channel capacity
             uptime_seconds: 0, // Would track actual uptime in production
             total_events_processed: 0, // Would track from metrics
+            timeout_stats: None, // Would be populated with actual timeout manager stats
+            bidirectional_stats: None, // Would be populated with actual bidirectional manager stats
         }
     }
     
@@ -267,6 +326,8 @@ pub struct RelayCoordinatorStats {
     pub event_channel_capacity: usize,
     pub uptime_seconds: u64,
     pub total_events_processed: u64,
+    pub timeout_stats: Option<TimeoutStats>,
+    pub bidirectional_stats: Option<BidirectionalStats>,
 }
 
 /// Health status for all relay components
@@ -330,6 +391,8 @@ mod tests {
             event_channel_capacity: 10000,
             uptime_seconds: 3600,
             total_events_processed: 150,
+            timeout_stats: None,
+            bidirectional_stats: None,
         };
         
         assert_eq!(stats.chains_configured, 2);

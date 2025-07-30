@@ -54,4 +54,7 @@ echo "- Create matching connection and channel on provider side"
 echo "- Implement bidirectional handshake automation"
 
 echo ""
-echo "🎯 Current status: Foundation complete, ready for cross-chain setup"
+echo "🎯 Current status: foundation complete, ready for cross-chain setup"
+echo ""
+echo "🚨 Error Handling:"
+echo "❌ If any step fails, check NEAR contract deployment and network connectivity"

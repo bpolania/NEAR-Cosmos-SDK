@@ -1,10 +1,14 @@
 [package]
 name = "ibc-relayer"
-version = "0.1.0"
+version = "0.9.0"
 edition = "2021"
 authors = ["NEAR-Cosmos-SDK Contributors"]
-description = "IBC relayer for bridging NEAR and Cosmos chains"
+description = "Production IBC relayer for bridging NEAR and Cosmos chains with complete packet relay infrastructure"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/bpolania/NEAR-Cosmos-SDK"
+homepage = "https://github.com/bpolania/NEAR-Cosmos-SDK"
+keywords = ["ibc", "near", "cosmos", "relayer", "cross-chain"]
+categories = ["cryptography", "network-programming", "blockchain"]
 
 [lib]
 name = "ibc_relayer"

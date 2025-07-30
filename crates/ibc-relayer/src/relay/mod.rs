@@ -16,6 +16,8 @@ pub mod near_proof;
 pub mod handshake;
 pub mod scanner;
 pub mod coordinator;
+pub mod timeout;
+pub mod bidirectional;
 
 // Re-export enhanced types
 pub use engine::RelayEngine as EnhancedRelayEngine;

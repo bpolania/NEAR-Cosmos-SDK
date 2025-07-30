@@ -34,6 +34,7 @@ if [[ "$RESULT" == *"channel-"* ]]; then
     # Extract channel ID from result
     CHANNEL_ID=$(echo "$RESULT" | grep -o "channel-[0-9]*" | head -1)
     echo "Channel ID: $CHANNEL_ID"
+    echo "Expected channel: channel-0"
     
     # Verify channel state
     echo "Verifying channel details..."

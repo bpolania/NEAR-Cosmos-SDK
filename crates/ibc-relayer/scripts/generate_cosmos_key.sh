@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Simple script to generate a Cosmos test key using openssl
 echo "🔑 Generating test Cosmos key for provider testnet..."
