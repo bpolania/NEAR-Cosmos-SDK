@@ -14,6 +14,8 @@ pub mod processor;
 pub mod proof;
 pub mod near_proof;
 pub mod handshake;
+pub mod scanner;
+pub mod coordinator;
 
 // Re-export enhanced types
 pub use engine::RelayEngine as EnhancedRelayEngine;

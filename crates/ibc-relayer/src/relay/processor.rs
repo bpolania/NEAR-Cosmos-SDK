@@ -8,6 +8,49 @@ use crate::config::RelayerConfig;
 use crate::metrics::RelayerMetrics;
 use super::proof::ProofGenerator;
 
+/// Complete proof package for packet relay
+#[derive(Debug, Clone)]
+pub struct PacketProof {
+    /// The packet being proven
+    pub packet: IbcPacket,
+    /// Packet commitment on source chain
+    pub commitment: Vec<u8>,
+    /// Merkle proof of the commitment
+    pub proof: Vec<u8>,
+    /// Height at which the proof was generated
+    pub proof_height: u64,
+    /// Client state for verification
+    pub client_state: Vec<u8>,
+    /// Consensus state for verification
+    pub consensus_state: Vec<u8>,
+}
+
+/// Acknowledgment proof package
+#[derive(Debug, Clone)]
+pub struct AckProof {
+    /// The packet being acknowledged
+    pub packet: IbcPacket,
+    /// Acknowledgment data
+    pub ack_data: Vec<u8>,
+    /// Merkle proof of the acknowledgment
+    pub proof: Vec<u8>,
+    /// Height at which the proof was generated
+    pub proof_height: u64,
+}
+
+/// Timeout proof package
+#[derive(Debug, Clone)]
+pub struct TimeoutProof {
+    /// The packet that timed out
+    pub packet: IbcPacket,
+    /// Proof that packet was not received
+    pub proof: Vec<u8>,
+    /// Height at which the proof was generated
+    pub proof_height: u64,
+    /// Next sequence receive to prove packet was not processed
+    pub next_sequence_recv: u64,
+}
+
 /// Handles packet processing through the complete relay pipeline
 pub struct PacketProcessor {
     /// Chain implementations
@@ -47,11 +90,11 @@ impl PacketProcessor {
         println!("🔄 Processing packet seq={} from {} to {}", 
                  packet.sequence, source_chain_id, dest_chain_id);
         
-        // Step 1: Generate proof of packet commitment on source chain
-        let proof_data = self.generate_packet_proof(source_chain_id, packet).await?;
+        // Step 1: Generate complete proof package of packet commitment on source chain
+        let packet_proof = self.generate_packet_proof(source_chain_id, packet).await?;
         
         // Step 2: Build IBC transaction for destination chain
-        let transaction_data = self.build_recv_packet_transaction(dest_chain_id, packet, &proof_data).await?;
+        let transaction_data = self.build_recv_packet_transaction(dest_chain_id, &packet_proof).await?;
         
         // Step 3: Submit transaction to destination chain
         let tx_hash = self.submit_transaction(dest_chain_id, transaction_data).await?;
@@ -97,14 +140,14 @@ impl PacketProcessor {
                  packet.sequence, source_chain_id, dest_chain_id);
         
         // Step 1: Generate NEAR state proof
-        let proof_data = self.generate_packet_proof(source_chain_id, packet).await?;
+        let packet_proof = self.generate_packet_proof(source_chain_id, packet).await?;
         let current_height = self.get_current_height(source_chain_id).await?;
         
         // Step 2: Use enhanced Cosmos transaction submission
         let tx_hash = self.submit_cosmos_recv_packet(
             dest_chain_id,
             packet,
-            &proof_data,
+            &packet_proof.proof,  // Use the proof bytes
             current_height,
         ).await?;
         
@@ -198,7 +241,7 @@ impl PacketProcessor {
         let ack_proof = self.generate_acknowledgment_proof(dest_chain_id, packet).await?;
         
         // Build acknowledgment transaction for source chain
-        let tx_data = self.build_ack_packet_transaction(source_chain_id, packet, ack_data, &ack_proof).await?;
+        let tx_data = self.build_ack_packet_transaction(source_chain_id, packet, ack_data, &ack_proof.proof).await?;
         
         // Submit to source chain
         let tx_hash = self.submit_transaction(source_chain_id, tx_data).await?;
@@ -222,7 +265,7 @@ impl PacketProcessor {
         let timeout_proof = self.generate_timeout_proof(dest_chain_id, packet).await?;
         
         // Build timeout transaction for source chain
-        let tx_data = self.build_timeout_packet_transaction(source_chain_id, packet, &timeout_proof).await?;
+        let tx_data = self.build_timeout_packet_transaction(source_chain_id, packet, &timeout_proof.proof).await?;
         
         // Submit to source chain (this will trigger refund)
         let tx_hash = self.submit_transaction(source_chain_id, tx_data).await?;
@@ -233,78 +276,227 @@ impl PacketProcessor {
         Ok(tx_hash)
     }
     
-    /// Generate proof of packet commitment on source chain
+    /// Generate complete proof package for packet commitment on source chain
     async fn generate_packet_proof(
         &self,
         chain_id: &str,
         packet: &IbcPacket,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<PacketProof, Box<dyn std::error::Error + Send + Sync>> {
         let start_time = Instant::now();
         
-        let proof = self.proof_generator.generate_packet_commitment_proof(
+        println!("🔐 Generating complete proof package for packet seq={} on {}", packet.sequence, chain_id);
+        
+        let source_chain = self.chains.get(chain_id)
+            .ok_or_else(|| format!("Unknown source chain: {}", chain_id))?;
+        
+        // Step 1: Get the current height for proof generation
+        let proof_height = source_chain.get_latest_height().await?;
+        
+        // Step 2: Query packet commitment from source chain
+        let commitment = source_chain.query_packet_commitment(
+            &packet.source_port,
+            &packet.source_channel,
+            packet.sequence,
+        ).await?;
+        
+        let commitment_bytes = commitment
+            .ok_or_else(|| format!("Packet commitment not found for seq={}", packet.sequence))?;
+        
+        // Step 3: Generate merkle proof of the commitment
+        let proof_data = self.proof_generator.generate_packet_commitment_proof(
             chain_id,
             &packet.source_port,
             &packet.source_channel,
             packet.sequence,
         ).await?;
         
-        let proof_time = start_time.elapsed();
-        println!("🔍 Generated packet proof in {:.2}s", proof_time.as_secs_f64());
+        // Step 4: Get client state and consensus state for verification
+        // For now, we'll use placeholder data - in production this would query the actual states
+        let client_state = self.get_client_state_for_chain(chain_id).await?;
+        let consensus_state = self.get_consensus_state_for_chain(chain_id, proof_height).await?;
         
-        Ok(proof)
+        let packet_proof = PacketProof {
+            packet: packet.clone(),
+            commitment: commitment_bytes,
+            proof: proof_data,
+            proof_height,
+            client_state,
+            consensus_state,
+        };
+        
+        let proof_time = start_time.elapsed();
+        println!("✅ Generated complete proof package in {:.2}s: commitment={} bytes, proof={} bytes", 
+                 proof_time.as_secs_f64(), packet_proof.commitment.len(), packet_proof.proof.len());
+        
+        Ok(packet_proof)
     }
     
-    /// Generate proof of acknowledgment
+    /// Get client state for chain (placeholder implementation)
+    async fn get_client_state_for_chain(
+        &self,
+        chain_id: &str,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        // In production, this would query the actual client state
+        // For now, return a placeholder
+        let client_id = if chain_id.contains("near") {
+            "07-tendermint-0"
+        } else {
+            "07-near-0"
+        };
+        
+        println!("📋 Getting client state for chain {} (client: {})", chain_id, client_id);
+        
+        // Placeholder client state
+        Ok(format!("CLIENT_STATE_{}", client_id).as_bytes().to_vec())
+    }
+    
+    /// Get consensus state for chain at specific height (placeholder implementation)
+    async fn get_consensus_state_for_chain(
+        &self,
+        chain_id: &str,
+        height: u64,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        println!("📋 Getting consensus state for chain {} at height {}", chain_id, height);
+        
+        // Placeholder consensus state
+        Ok(format!("CONSENSUS_STATE_{}_{}", chain_id, height).as_bytes().to_vec())
+    }
+    
+    /// Generate complete acknowledgment proof package
     async fn generate_acknowledgment_proof(
         &self,
         chain_id: &str,
         packet: &IbcPacket,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        self.proof_generator.generate_acknowledgment_proof(
+    ) -> Result<AckProof, Box<dyn std::error::Error + Send + Sync>> {
+        let start_time = Instant::now();
+        
+        println!("🎯 Generating acknowledgment proof for packet seq={} on {}", packet.sequence, chain_id);
+        
+        let dest_chain = self.chains.get(chain_id)
+            .ok_or_else(|| format!("Unknown destination chain: {}", chain_id))?;
+        
+        // Step 1: Get the current height for proof generation
+        let proof_height = dest_chain.get_latest_height().await?;
+        
+        // Step 2: Query acknowledgment from destination chain
+        let ack_data = dest_chain.query_packet_acknowledgment(
+            &packet.destination_port,
+            &packet.destination_channel,
+            packet.sequence,
+        ).await?;
+        
+        let ack_bytes = ack_data
+            .ok_or_else(|| format!("Packet acknowledgment not found for seq={}", packet.sequence))?;
+        
+        // Step 3: Generate merkle proof of the acknowledgment
+        let proof_data = self.proof_generator.generate_acknowledgment_proof(
             chain_id,
             &packet.destination_port,
             &packet.destination_channel,
             packet.sequence,
-        ).await
+        ).await?;
+        
+        let ack_proof = AckProof {
+            packet: packet.clone(),
+            ack_data: ack_bytes,
+            proof: proof_data,
+            proof_height,
+        };
+        
+        let proof_time = start_time.elapsed();
+        println!("✅ Generated acknowledgment proof in {:.2}s: ack={} bytes, proof={} bytes", 
+                 proof_time.as_secs_f64(), ack_proof.ack_data.len(), ack_proof.proof.len());
+        
+        Ok(ack_proof)
     }
     
-    /// Generate timeout proof
+    /// Generate complete timeout proof package
     async fn generate_timeout_proof(
         &self,
         chain_id: &str,
         packet: &IbcPacket,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        self.proof_generator.generate_timeout_proof(
+    ) -> Result<TimeoutProof, Box<dyn std::error::Error + Send + Sync>> {
+        let start_time = Instant::now();
+        
+        println!("⏰ Generating timeout proof for packet seq={} on {}", packet.sequence, chain_id);
+        
+        let dest_chain = self.chains.get(chain_id)
+            .ok_or_else(|| format!("Unknown destination chain: {}", chain_id))?;
+        
+        // Step 1: Get the current height for proof generation
+        let proof_height = dest_chain.get_latest_height().await?;
+        
+        // Step 2: Get next sequence receive to prove packet was not processed
+        let next_sequence_recv = dest_chain.query_next_sequence_recv(
+            &packet.destination_port,
+            &packet.destination_channel,
+        ).await?;
+        
+        // Step 3: Verify that the packet sequence is less than next_sequence_recv (meaning it wasn't processed)
+        if packet.sequence >= next_sequence_recv {
+            return Err(format!("Packet seq={} was already processed (next_seq_recv={})", 
+                             packet.sequence, next_sequence_recv).into());
+        }
+        
+        // Step 4: Generate proof that packet was not received
+        let proof_data = self.proof_generator.generate_timeout_proof(
             chain_id,
             &packet.destination_port,
             &packet.destination_channel,
             packet.sequence,
-        ).await
+        ).await?;
+        
+        let timeout_proof = TimeoutProof {
+            packet: packet.clone(),
+            proof: proof_data,
+            proof_height,
+            next_sequence_recv,
+        };
+        
+        let proof_time = start_time.elapsed();
+        println!("✅ Generated timeout proof in {:.2}s: next_seq_recv={}, proof={} bytes", 
+                 proof_time.as_secs_f64(), timeout_proof.next_sequence_recv, timeout_proof.proof.len());
+        
+        Ok(timeout_proof)
     }
     
     /// Build recv_packet transaction for destination chain
     async fn build_recv_packet_transaction(
         &self,
         dest_chain_id: &str,
-        packet: &IbcPacket,
-        proof_data: &[u8],
+        packet_proof: &PacketProof,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        // For now, create a simple transaction structure
-        // In production, this would create proper IBC transactions
+        println!("🔨 Building recv_packet transaction for {} with enhanced proof package", dest_chain_id);
+        
+        // Create enhanced transaction structure with complete proof package
         let mut tx_data = Vec::new();
         
-        // Add packet data
-        tx_data.extend_from_slice(&packet.sequence.to_be_bytes());
-        tx_data.extend_from_slice(packet.source_port.as_bytes());
-        tx_data.extend_from_slice(packet.source_channel.as_bytes());
-        tx_data.extend_from_slice(packet.destination_port.as_bytes());
-        tx_data.extend_from_slice(packet.destination_channel.as_bytes());
-        tx_data.extend_from_slice(&packet.data);
+        // Transaction type
+        tx_data.extend_from_slice(b"RECV_PACKET:");
         
-        // Add proof
-        tx_data.extend_from_slice(proof_data);
+        // Packet information
+        tx_data.extend_from_slice(&packet_proof.packet.sequence.to_be_bytes());
+        tx_data.extend_from_slice(packet_proof.packet.source_port.as_bytes());
+        tx_data.extend_from_slice(packet_proof.packet.source_channel.as_bytes());
+        tx_data.extend_from_slice(packet_proof.packet.destination_port.as_bytes());
+        tx_data.extend_from_slice(packet_proof.packet.destination_channel.as_bytes());
         
-        println!("🔨 Built recv_packet transaction for {} ({} bytes)", 
+        // Packet data
+        tx_data.extend_from_slice(&(packet_proof.packet.data.len() as u32).to_be_bytes());
+        tx_data.extend_from_slice(&packet_proof.packet.data);
+        
+        // Proof package
+        tx_data.extend_from_slice(&packet_proof.proof_height.to_be_bytes());
+        tx_data.extend_from_slice(&(packet_proof.commitment.len() as u32).to_be_bytes());
+        tx_data.extend_from_slice(&packet_proof.commitment);
+        tx_data.extend_from_slice(&(packet_proof.proof.len() as u32).to_be_bytes());
+        tx_data.extend_from_slice(&packet_proof.proof);
+        tx_data.extend_from_slice(&(packet_proof.client_state.len() as u32).to_be_bytes());
+        tx_data.extend_from_slice(&packet_proof.client_state);
+        tx_data.extend_from_slice(&(packet_proof.consensus_state.len() as u32).to_be_bytes());
+        tx_data.extend_from_slice(&packet_proof.consensus_state);
+        
+        println!("🔨 Built enhanced recv_packet transaction for {} ({} bytes total)", 
                  dest_chain_id, tx_data.len());
         
         Ok(tx_data)
