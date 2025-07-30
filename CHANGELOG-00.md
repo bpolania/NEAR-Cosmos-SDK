@@ -1,6 +1,6 @@
-# Changelog
+# Changelog - Archive 00
 
-This file tracks the development progress of the Cosmos-on-NEAR project across sessions.
+This file tracks the initial development progress of the Cosmos-on-NEAR project.
 
 ## Session 1 - Initial Implementation (2025-07-19)
 

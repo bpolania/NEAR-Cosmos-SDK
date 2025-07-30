@@ -635,7 +635,7 @@ impl CosmosChain {
     }
 
     /// Query Tendermint status for basic connectivity check
-    async fn query_status(&self) -> Result<TendermintStatus, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn query_status(&self) -> Result<TendermintStatus, Box<dyn std::error::Error + Send + Sync>> {
         let response = self.client
             .get(&format!("{}/status", self.rpc_endpoint))
             .send()
@@ -810,47 +810,137 @@ impl Chain for CosmosChain {
         Ok(status.latest_block_height)
     }
 
-    /// Query packet commitment - STUB for minimal implementation
-    /// Returns None since we don't need to query Cosmos state yet
+    /// Query packet commitment from Cosmos chain
     async fn query_packet_commitment(
         &self,
-        _port_id: &str,
-        _channel_id: &str,
-        _sequence: u64,
+        port_id: &str,
+        channel_id: &str,
+        sequence: u64,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement when we need Cosmos → NEAR relay
+        let path = format!(
+            "/ibc/core/channel/v1/channels/{}/ports/{}/packet_commitments/{}",
+            channel_id, port_id, sequence
+        );
+        
+        let response = self.client
+            .get(&format!("{}{}", self.rpc_endpoint, path))
+            .send()
+            .await?;
+        
+        if response.status() == 404 {
+            return Ok(None);
+        }
+        
+        let result: Value = response.json().await?;
+        
+        if let Some(commitment) = result.get("commitment") {
+            if let Some(commitment_str) = commitment.as_str() {
+                if !commitment_str.is_empty() {
+                    let commitment_bytes = general_purpose::STANDARD.decode(commitment_str)
+                        .map_err(|e| format!("Failed to decode commitment: {}", e))?;
+                    return Ok(Some(commitment_bytes));
+                }
+            }
+        }
+        
         Ok(None)
     }
 
-    /// Query packet acknowledgment - STUB for minimal implementation
+    /// Query packet acknowledgment from Cosmos chain
     async fn query_packet_acknowledgment(
         &self,
-        _port_id: &str,
-        _channel_id: &str,
-        _sequence: u64,
+        port_id: &str,
+        channel_id: &str,
+        sequence: u64,
     ) -> Result<Option<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement when we need acknowledgment processing
+        let path = format!(
+            "/ibc/core/channel/v1/channels/{}/ports/{}/packet_acks/{}",
+            channel_id, port_id, sequence
+        );
+        
+        let response = self.client
+            .get(&format!("{}{}", self.rpc_endpoint, path))
+            .send()
+            .await?;
+        
+        if response.status() == 404 {
+            return Ok(None);
+        }
+        
+        let result: Value = response.json().await?;
+        
+        if let Some(ack) = result.get("acknowledgement") {
+            if let Some(ack_str) = ack.as_str() {
+                if !ack_str.is_empty() {
+                    let ack_bytes = general_purpose::STANDARD.decode(ack_str)
+                        .map_err(|e| format!("Failed to decode acknowledgment: {}", e))?;
+                    return Ok(Some(ack_bytes));
+                }
+            }
+        }
+        
         Ok(None)
     }
 
-    /// Query packet receipt - STUB for minimal implementation
+    /// Query packet receipt from Cosmos chain (for unordered channels)
     async fn query_packet_receipt(
         &self,
-        _port_id: &str,
-        _channel_id: &str,
-        _sequence: u64,
+        port_id: &str,
+        channel_id: &str,
+        sequence: u64,
     ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement for unordered channels
-        Ok(false)
+        let path = format!(
+            "/ibc/core/channel/v1/channels/{}/ports/{}/packet_receipts/{}",
+            channel_id, port_id, sequence
+        );
+        
+        let response = self.client
+            .get(&format!("{}{}", self.rpc_endpoint, path))
+            .send()
+            .await?;
+        
+        if response.status() == 404 {
+            return Ok(false);
+        }
+        
+        let result: Value = response.json().await?;
+        
+        // If we get a successful response, the receipt exists
+        if let Some(received) = result.get("received") {
+            return Ok(received.as_bool().unwrap_or(false));
+        }
+        
+        // If the query succeeds but no explicit "received" field, assume receipt exists
+        Ok(true)
     }
 
-    /// Query next sequence receive - STUB for minimal implementation
+    /// Query next sequence receive from Cosmos chain
     async fn query_next_sequence_recv(
         &self,
-        _port_id: &str,
-        _channel_id: &str,
+        port_id: &str,
+        channel_id: &str,
     ) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement when we need bidirectional relay
+        let path = format!(
+            "/ibc/core/channel/v1/channels/{}/ports/{}/next_sequence",
+            channel_id, port_id
+        );
+        
+        let response = self.client
+            .get(&format!("{}{}", self.rpc_endpoint, path))
+            .send()
+            .await?;
+        
+        let result: Value = response.json().await?;
+        
+        if let Some(next_sequence) = result.get("next_sequence_receive") {
+            if let Some(seq_str) = next_sequence.as_str() {
+                return Ok(seq_str.parse().unwrap_or(1));
+            } else if let Some(seq_num) = next_sequence.as_u64() {
+                return Ok(seq_num);
+            }
+        }
+        
+        // Fallback to sequence 1 if not found
         Ok(1)
     }
 
@@ -940,10 +1030,10 @@ impl Chain for CosmosChain {
 
 /// Tendermint status response structure
 #[derive(Debug, Deserialize)]
-struct TendermintStatus {
-    chain_id: String,
-    latest_block_height: u64,
-    latest_block_time: String,
+pub struct TendermintStatus {
+    pub chain_id: String,
+    pub latest_block_height: u64,
+    pub latest_block_time: String,
 }
 
 /// Account information from Cosmos chain
