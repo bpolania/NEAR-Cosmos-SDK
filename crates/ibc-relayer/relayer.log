@@ -1,0 +1,408 @@
+=======================================
+Starting IBC Relayer for Testnet
+=======================================
+Loading environment variables from .env...
+
+Configuration:
+- NEAR Account: cuteharbor3573.testnet
+- Cosmos Account: cosmos162ca2a24f0d288439231d29170a101e554b7e6
+- Log Level: info,ibc_relayer=debug
+- Metrics Port: 9090
+
+Building relayer in release mode...
+warning: unused import: `Path`
+ --> crates/ibc-relayer/src/keystore/mod.rs:6:17
+  |
+6 | use std::path::{Path, PathBuf};
+  |                 ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `std::str::FromStr`
+ --> crates/ibc-relayer/src/keystore/near.rs:5:5
+  |
+5 | use std::str::FromStr;
+  |     ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CosmosKey` and `NearKey`
+ --> crates/ibc-relayer/src/keystore/storage.rs:2:33
+  |
+2 | use super::{KeyEntry, KeyError, CosmosKey, NearKey};
+  |                                 ^^^^^^^^^  ^^^^^^^
+
+warning: unused imports: `PasswordHash` and `PasswordVerifier`
+  --> crates/ibc-relayer/src/keystore/storage.rs:11:22
+   |
+11 | use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
+   |                      ^^^^^^^^^^^^                  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `Rng`
+  --> crates/ibc-relayer/src/keystore/storage.rs:12:21
+   |
+12 | use rand::{RngCore, Rng};
+   |                     ^^^
+
+warning: unused variable: `keystore`
+   --> crates/ibc-relayer/src/keystore/storage.rs:196:13
+    |
+196 |         let keystore: KeystoreFile = serde_json::from_str(&data)
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_keystore`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: associated function `decrypt_key` is never used
+   --> crates/ibc-relayer/src/keystore/storage.rs:165:8
+    |
+98  | impl EncryptedKeystore {
+    | ---------------------- associated function in this implementation
+...
+165 |     fn decrypt_key(keystore: &KeystoreFile, password: &str) -> Result<Vec<u8>, KeystoreError> {
+    |        ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `ibc-relayer` (lib) generated 7 warnings (run `cargo fix --lib -p ibc-relayer` to apply 5 suggestions)
+warning: unused import: `engine::RelayEngine as EnhancedRelayEngine`
+  --> crates/ibc-relayer/src/relay/mod.rs:18:9
+   |
+18 | pub use engine::RelayEngine as EnhancedRelayEngine;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `PacketLifecycle`, `PacketMetadata`, `PacketState`, and `ProcessingTimes`
+  --> crates/ibc-relayer/src/relay/mod.rs:19:18
+   |
+19 | pub use packet::{PacketLifecycle, PacketState, PacketMetadata, ProcessingTimes};
+   |                  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `processor::PacketProcessor`
+  --> crates/ibc-relayer/src/relay/mod.rs:20:9
+   |
+20 | pub use processor::PacketProcessor;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `proof::ProofGenerator`
+  --> crates/ibc-relayer/src/relay/mod.rs:21:9
+   |
+21 | pub use proof::ProofGenerator;
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `store_key`, `remove_key`, `list_keys`, `export_key`, and `get_address` are never used
+   --> crates/ibc-relayer/src/keystore/mod.rs:91:12
+    |
+89  | impl KeyManager {
+    | --------------- associated items in this implementation
+90  |     /// Create a new key manager with the given configuration
+91  |     pub fn new(config: KeyManagerConfig) -> Result<Self, KeyError> {
+    |            ^^^
+...
+138 |     pub async fn store_key(
+    |                  ^^^^^^^^^
+...
+154 |     pub async fn remove_key(&mut self, chain_id: &str) -> Result<(), KeyError> {
+    |                  ^^^^^^^^^^
+...
+165 |     pub async fn list_keys(&self) -> Result<Vec<String>, KeyError> {
+    |                  ^^^^^^^^^
+...
+189 |     pub fn export_key(&self, chain_id: &str) -> Result<String, KeyError> {
+    |            ^^^^^^^^^^
+...
+200 |     pub fn get_address(&self, chain_id: &str) -> Result<String, KeyError> {
+    |            ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: associated items `from_private_key`, `to_export_string`, and `public_key_hex` are never used
+  --> crates/ibc-relayer/src/keystore/cosmos.rs:21:12
+   |
+19 | impl CosmosKey {
+   | -------------- associated items in this implementation
+20 |     /// Create a new Cosmos key from private key bytes
+21 |     pub fn from_private_key(private_key: Vec<u8>, address_prefix: &str) -> Result<Self, KeyError> {
+   |            ^^^^^^^^^^^^^^^^
+...
+89 |     pub fn to_export_string(&self) -> String {
+   |            ^^^^^^^^^^^^^^^^
+...
+99 |     pub fn public_key_hex(&self) -> String {
+   |            ^^^^^^^^^^^^^^
+
+warning: associated items `from_private_key_bytes`, `to_export_string`, `get_secret_key`, `get_public_key`, `validate`, and `create_access_key` are never used
+   --> crates/ibc-relayer/src/keystore/near.rs:43:12
+    |
+20  | impl NearKey {
+    | ------------ associated items in this implementation
+...
+43  |     pub fn from_private_key_bytes(
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+95  |     pub fn to_export_string(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^
+...
+100 |     pub fn get_secret_key(&self) -> Result<SecretKey, KeyError> {
+    |            ^^^^^^^^^^^^^^
+...
+106 |     pub fn get_public_key(&self) -> Result<PublicKey, KeyError> {
+    |            ^^^^^^^^^^^^^^
+...
+112 |     pub fn validate(&self) -> Result<(), KeyError> {
+    |            ^^^^^^^^
+...
+130 |     pub fn create_access_key(&self) -> Result<String, KeyError> {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: variants `Decryption` and `CorruptedFile` are never constructed
+  --> crates/ibc-relayer/src/keystore/storage.rs:21:5
+   |
+16 | pub enum KeystoreError {
+   |          ------------- variants in this enum
+...
+21 |     Decryption(String),
+   |     ^^^^^^^^^^
+...
+27 |     CorruptedFile,
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `KeystoreError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `store_key`, `remove_key`, and `list_keys` are never used
+  --> crates/ibc-relayer/src/keystore/storage.rs:43:14
+   |
+38 | pub trait KeyStorage: Send + Sync {
+   |           ---------- methods in this trait
+...
+43 |     async fn store_key(&self, chain_id: &str, key: &KeyEntry, password: &str) -> Result<(), KeyError>;
+   |              ^^^^^^^^^
+...
+46 |     async fn remove_key(&self, chain_id: &str) -> Result<(), KeyError>;
+   |              ^^^^^^^^^^
+...
+49 |     async fn list_keys(&self) -> Result<Vec<String>, KeyError>;
+   |              ^^^^^^^^^
+
+warning: associated functions `new` and `decrypt_key` are never used
+   --> crates/ibc-relayer/src/keystore/storage.rs:100:12
+    |
+98  | impl EncryptedKeystore {
+    | ---------------------- associated functions in this implementation
+99  |     /// Create a new encrypted keystore
+100 |     pub fn new<P: AsRef<Path>>(keystore_dir: P) -> Result<Self, KeystoreError> {
+    |            ^^^
+...
+165 |     fn decrypt_key(keystore: &KeystoreFile, password: &str) -> Result<Vec<u8>, KeystoreError> {
+    |        ^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/ibc-relayer/src/keystore/storage.rs:262:12
+    |
+261 | impl MemoryKeyStorage {
+    | --------------------- associated function in this implementation
+262 |     pub fn new() -> Self {
+    |            ^^^
+
+warning: `ibc-relayer` (bin "relayer") generated 17 warnings (6 duplicates) (run `cargo fix --bin "relayer"` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.85s
+Starting relayer...
+=======================================
+
+warning: unused import: `Path`
+ --> crates/ibc-relayer/src/keystore/mod.rs:6:17
+  |
+6 | use std::path::{Path, PathBuf};
+  |                 ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `std::str::FromStr`
+ --> crates/ibc-relayer/src/keystore/near.rs:5:5
+  |
+5 | use std::str::FromStr;
+  |     ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CosmosKey` and `NearKey`
+ --> crates/ibc-relayer/src/keystore/storage.rs:2:33
+  |
+2 | use super::{KeyEntry, KeyError, CosmosKey, NearKey};
+  |                                 ^^^^^^^^^  ^^^^^^^
+
+warning: unused imports: `PasswordHash` and `PasswordVerifier`
+  --> crates/ibc-relayer/src/keystore/storage.rs:11:22
+   |
+11 | use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
+   |                      ^^^^^^^^^^^^                  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `Rng`
+  --> crates/ibc-relayer/src/keystore/storage.rs:12:21
+   |
+12 | use rand::{RngCore, Rng};
+   |                     ^^^
+
+warning: unused variable: `keystore`
+   --> crates/ibc-relayer/src/keystore/storage.rs:196:13
+    |
+196 |         let keystore: KeystoreFile = serde_json::from_str(&data)
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_keystore`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: associated function `decrypt_key` is never used
+   --> crates/ibc-relayer/src/keystore/storage.rs:165:8
+    |
+98  | impl EncryptedKeystore {
+    | ---------------------- associated function in this implementation
+...
+165 |     fn decrypt_key(keystore: &KeystoreFile, password: &str) -> Result<Vec<u8>, KeystoreError> {
+    |        ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `ibc-relayer` (lib) generated 7 warnings (run `cargo fix --lib -p ibc-relayer` to apply 5 suggestions)
+warning: unused import: `engine::RelayEngine as EnhancedRelayEngine`
+  --> crates/ibc-relayer/src/relay/mod.rs:18:9
+   |
+18 | pub use engine::RelayEngine as EnhancedRelayEngine;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `PacketLifecycle`, `PacketMetadata`, `PacketState`, and `ProcessingTimes`
+  --> crates/ibc-relayer/src/relay/mod.rs:19:18
+   |
+19 | pub use packet::{PacketLifecycle, PacketState, PacketMetadata, ProcessingTimes};
+   |                  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `processor::PacketProcessor`
+  --> crates/ibc-relayer/src/relay/mod.rs:20:9
+   |
+20 | pub use processor::PacketProcessor;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `proof::ProofGenerator`
+  --> crates/ibc-relayer/src/relay/mod.rs:21:9
+   |
+21 | pub use proof::ProofGenerator;
+   |         ^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `store_key`, `remove_key`, `list_keys`, `export_key`, and `get_address` are never used
+   --> crates/ibc-relayer/src/keystore/mod.rs:91:12
+    |
+89  | impl KeyManager {
+    | --------------- associated items in this implementation
+90  |     /// Create a new key manager with the given configuration
+91  |     pub fn new(config: KeyManagerConfig) -> Result<Self, KeyError> {
+    |            ^^^
+...
+138 |     pub async fn store_key(
+    |                  ^^^^^^^^^
+...
+154 |     pub async fn remove_key(&mut self, chain_id: &str) -> Result<(), KeyError> {
+    |                  ^^^^^^^^^^
+...
+165 |     pub async fn list_keys(&self) -> Result<Vec<String>, KeyError> {
+    |                  ^^^^^^^^^
+...
+189 |     pub fn export_key(&self, chain_id: &str) -> Result<String, KeyError> {
+    |            ^^^^^^^^^^
+...
+200 |     pub fn get_address(&self, chain_id: &str) -> Result<String, KeyError> {
+    |            ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: associated items `from_private_key`, `to_export_string`, and `public_key_hex` are never used
+  --> crates/ibc-relayer/src/keystore/cosmos.rs:21:12
+   |
+19 | impl CosmosKey {
+   | -------------- associated items in this implementation
+20 |     /// Create a new Cosmos key from private key bytes
+21 |     pub fn from_private_key(private_key: Vec<u8>, address_prefix: &str) -> Result<Self, KeyError> {
+   |            ^^^^^^^^^^^^^^^^
+...
+89 |     pub fn to_export_string(&self) -> String {
+   |            ^^^^^^^^^^^^^^^^
+...
+99 |     pub fn public_key_hex(&self) -> String {
+   |            ^^^^^^^^^^^^^^
+
+warning: associated items `from_private_key_bytes`, `to_export_string`, `get_secret_key`, `get_public_key`, `validate`, and `create_access_key` are never used
+   --> crates/ibc-relayer/src/keystore/near.rs:43:12
+    |
+20  | impl NearKey {
+    | ------------ associated items in this implementation
+...
+43  |     pub fn from_private_key_bytes(
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+95  |     pub fn to_export_string(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^
+...
+100 |     pub fn get_secret_key(&self) -> Result<SecretKey, KeyError> {
+    |            ^^^^^^^^^^^^^^
+...
+106 |     pub fn get_public_key(&self) -> Result<PublicKey, KeyError> {
+    |            ^^^^^^^^^^^^^^
+...
+112 |     pub fn validate(&self) -> Result<(), KeyError> {
+    |            ^^^^^^^^
+...
+130 |     pub fn create_access_key(&self) -> Result<String, KeyError> {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: variants `Decryption` and `CorruptedFile` are never constructed
+  --> crates/ibc-relayer/src/keystore/storage.rs:21:5
+   |
+16 | pub enum KeystoreError {
+   |          ------------- variants in this enum
+...
+21 |     Decryption(String),
+   |     ^^^^^^^^^^
+...
+27 |     CorruptedFile,
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `KeystoreError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `store_key`, `remove_key`, and `list_keys` are never used
+  --> crates/ibc-relayer/src/keystore/storage.rs:43:14
+   |
+38 | pub trait KeyStorage: Send + Sync {
+   |           ---------- methods in this trait
+...
+43 |     async fn store_key(&self, chain_id: &str, key: &KeyEntry, password: &str) -> Result<(), KeyError>;
+   |              ^^^^^^^^^
+...
+46 |     async fn remove_key(&self, chain_id: &str) -> Result<(), KeyError>;
+   |              ^^^^^^^^^^
+...
+49 |     async fn list_keys(&self) -> Result<Vec<String>, KeyError>;
+   |              ^^^^^^^^^
+
+warning: associated functions `new` and `decrypt_key` are never used
+   --> crates/ibc-relayer/src/keystore/storage.rs:100:12
+    |
+98  | impl EncryptedKeystore {
+    | ---------------------- associated functions in this implementation
+99  |     /// Create a new encrypted keystore
+100 |     pub fn new<P: AsRef<Path>>(keystore_dir: P) -> Result<Self, KeystoreError> {
+    |            ^^^
+...
+165 |     fn decrypt_key(keystore: &KeystoreFile, password: &str) -> Result<Vec<u8>, KeystoreError> {
+    |        ^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/ibc-relayer/src/keystore/storage.rs:262:12
+    |
+261 | impl MemoryKeyStorage {
+    | --------------------- associated function in this implementation
+262 |     pub fn new() -> Self {
+    |            ^^^
+
+warning: `ibc-relayer` (bin "relayer") generated 17 warnings (6 duplicates) (run `cargo fix --bin "relayer"` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.30s
+     Running `/Users/bpolania/Documents/GitHub/NEAR-Cosmos-SDK/target/release/relayer start`
+[2m2025-07-30T06:22:59.140861Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m Starting IBC Relayer for NEAR-Cosmos bridge
+[2m2025-07-30T06:22:59.142042Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m Loaded configuration from: config/relayer.toml
+[2m2025-07-30T06:22:59.142052Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m Starting relayer...
+[2m2025-07-30T06:22:59.142055Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m 🚀 IBC Relayer starting...
+[2m2025-07-30T06:22:59.142140Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m Metrics initialized
+[2m2025-07-30T06:22:59.142145Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m Relay engine initialized with 0 chains
+[2m2025-07-30T06:22:59.142148Z[0m [32m INFO[0m [2mrelayer[0m[2m:[0m Metrics server would start on 127.0.0.1:3001
+[2m2025-07-30T06:22:59.142159Z[0m [33m WARN[0m [2mrelayer[0m[2m:[0m Relayer implementation in progress

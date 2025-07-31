@@ -1,0 +1,28 @@
+services:
+  wasmd:
+    image: cosmwasm/wasmd:latest
+    platform: linux/amd64
+    container_name: wasmd-testnet
+    ports:
+      - "26657:26657"  # RPC
+      - "26656:26656"  # P2P
+      - "1317:1317"    # REST API
+      - "9090:9090"    # gRPC
+    volumes:
+      - ./wasmd/init.sh:/init.sh:ro
+    command: ["/bin/sh", "/init.sh"]
+    environment:
+      - CHAIN_ID=wasmd-testnet
+      - MONIKER=testnode
+    healthcheck:
+      test: ["CMD", "wasmd", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - cosmos-testnet
+
+networks:
+  cosmos-testnet:
+    driver: bridge
