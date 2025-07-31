@@ -17,11 +17,10 @@ async fn test_testnet_configuration_parsing() {
     // Verify Cosmos testnet configuration  
     let cosmos_config = config.chains.get("cosmoshub-testnet").expect("Cosmos testnet config missing");
     assert_eq!(cosmos_config.chain_id, "provider");
-    assert_eq!(cosmos_config.rpc_endpoint, "https://rest.provider-sentry-01.ics-testnet.polypore.xyz");
+    assert_eq!(cosmos_config.rpc_endpoint, "https://rpc.testnet.cosmos.network");
 }
 
 #[tokio::test]
-#[ignore = "Requires live testnet connection"]
 async fn test_near_testnet_connectivity() {
     let client = reqwest::Client::new();
     
@@ -39,21 +38,31 @@ async fn test_near_testnet_connectivity() {
 }
 
 #[tokio::test]
-#[ignore = "Requires live testnet connection"]
-async fn test_cosmos_testnet_connectivity() {
-    let client = reqwest::Client::new();
+async fn test_local_wasmd_testnet_connectivity() {
+    use ibc_relayer::testnet::test_utils;
     
-    // Test Cosmos provider testnet RPC connectivity
-    let response = timeout(
-        Duration::from_secs(10),
-        client.get("https://rpc.provider-sentry-01.ics-testnet.polypore.xyz/status").send()
-    ).await.expect("Request timed out").expect("Failed to connect to Cosmos testnet");
+    // Start local wasmd testnet
+    let testnet = test_utils::ensure_local_testnet().await
+        .expect("Failed to start local wasmd testnet");
     
-    assert!(response.status().is_success());
+    // Test connectivity
+    assert!(testnet.is_running().await, "Local testnet should be running");
     
-    let body: serde_json::Value = response.json().await.expect("Failed to parse JSON");
-    assert_eq!(body["result"]["node_info"]["network"], "provider");
-    assert!(body["result"]["sync_info"]["latest_block_height"].as_str().unwrap().parse::<u64>().unwrap() > 0);
+    // Test we can get block height
+    let height = testnet.get_block_height().await
+        .expect("Should be able to get block height");
+    assert!(height > 0, "Block height should be greater than 0");
+    
+    // Test account information
+    let accounts = testnet.get_test_accounts();
+    assert!(!accounts.validator.address.is_empty());
+    assert!(!accounts.test1.address.is_empty());
+    assert!(!accounts.relayer.address.is_empty());
+    
+    println!("✅ Local wasmd testnet connectivity test passed");
+    println!("   Chain ID: {}", testnet.chain_id);
+    println!("   Block height: {}", height);
+    println!("   Validator address: {}", accounts.validator.address);
 }
 
 #[tokio::test]
@@ -84,59 +93,60 @@ async fn test_environment_key_loading() {
 }
 
 #[tokio::test]
-#[ignore = "Requires live testnet connection"]
-async fn test_testnet_deployment_readiness() {
-    // This test verifies that all components needed for testnet deployment are ready
+async fn test_local_testnet_deployment_readiness() {
+    use ibc_relayer::testnet::test_utils;
     
-    // 1. Configuration can be loaded
-    let config = RelayerConfig::load("config/relayer.toml").expect("Config loading failed");
-    assert!(config.chains.len() >= 2, "Not enough chains configured");
+    // 1. Configuration can be loaded (local testnet config)
+    let config = RelayerConfig::load("config/local-testnet.toml").expect("Local testnet config loading failed");
     
-    // 2. Both testnet endpoints are reachable
-    let client = reqwest::Client::new();
-    
-    // Check NEAR testnet
-    let near_response = timeout(
-        Duration::from_secs(5),
-        client.get("https://rpc.testnet.near.org/status").send()
-    ).await;
-    assert!(near_response.is_ok(), "NEAR testnet unreachable");
-    
-    // Check Cosmos testnet
-    let cosmos_response = timeout(
-        Duration::from_secs(5), 
-        client.get("https://rpc.provider-sentry-01.ics-testnet.polypore.xyz/status").send()
-    ).await;
-    assert!(cosmos_response.is_ok(), "Cosmos testnet unreachable");
-    
-    // 3. Key manager can be initialized
+    // 2. Key manager can be initialized
     let key_config = KeyManagerConfig::default();
-    let key_manager = KeyManager::new(key_config);
-    assert!(key_manager.is_ok(), "Key manager initialization failed");
+    let _key_manager = KeyManager::new(key_config).expect("Key manager init failed");
     
-    println!("✅ Testnet deployment readiness verified");
+    // 3. All required chains are configured
+    assert!(config.chains.contains_key("near-testnet"), "NEAR testnet config missing");
+    assert!(config.chains.contains_key("wasmd-local"), "Local wasmd config missing");
+    
+    // 4. Connection configurations are valid
+    assert!(!config.connections.is_empty(), "No connections configured");
+    
+    // 5. Local testnet can be started and is functional
+    let testnet = test_utils::ensure_local_testnet().await
+        .expect("Failed to start local testnet");
+    
+    assert!(testnet.is_running().await, "Local testnet should be running");
+    
+    // 6. Test accounts are accessible
+    let accounts = testnet.get_test_accounts();
+    assert_eq!(accounts.validator.initial_balance, "100000000000000000000");
+    assert_eq!(accounts.test1.initial_balance, "100000000000000000000");
+    assert_eq!(accounts.relayer.initial_balance, "100000000000000000000");
+    
+    println!("✅ Local testnet deployment readiness verified");
+    println!("   Local wasmd: {}", testnet.rpc_endpoint);
+    println!("   Accounts configured: 3 (validator, test1, relayer)");
+    println!("   Each account balance: {} stake + {} token", accounts.validator.initial_balance, accounts.validator.initial_balance);
 }
 
 #[tokio::test]
-#[ignore = "Requires specific testnet key format"] 
 async fn test_real_testnet_key_format() {
     // Test with the actual generated testnet key format
     let test_key = "cosmos162ca2a24f0d288439231d29170a101e554b7e6:d600357797a65160742b73279fb55f55faf83258f841e8411d5503b95f079791";
     
-    env::set_var("RELAYER_KEY_PROVIDER", test_key);
+    env::set_var("RELAYER_KEY_REAL_TESTNET", test_key);
     
     let config = KeyManagerConfig::default();
     let mut key_manager = KeyManager::new(config).expect("Key manager creation failed");
     
-    let result = key_manager.load_key("provider").await;
+    let result = key_manager.load_key("real-testnet").await;
     assert!(result.is_ok(), "Failed to load real testnet key format: {:?}", result.err());
     
     // Verify we can get the address
-    let address = key_manager.get_address("provider");
+    let address = key_manager.get_address("real-testnet");
     assert!(address.is_ok(), "Failed to get address from testnet key");
     assert_eq!(address.unwrap(), "cosmos162ca2a24f0d288439231d29170a101e554b7e6");
     
-    env::remove_var("RELAYER_KEY_PROVIDER");
+    env::remove_var("RELAYER_KEY_REAL_TESTNET");
 }
 
 #[cfg(test)]

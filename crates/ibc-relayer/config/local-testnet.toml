@@ -1,4 +1,5 @@
-# IBC Relayer Configuration for NEAR-Cosmos Bridge
+# IBC Relayer Configuration for Local Development
+# Uses local wasmd testnet instead of public testnets
 
 [global]
 log_level = "info"
@@ -20,31 +21,31 @@ signer_account_id = "cuteharbor3573.testnet"
 network_id = "testnet"
 # private_key = "ed25519:..." # Set via environment variable
 
-[chains.cosmoshub-testnet]
+# Local wasmd testnet - controlled and reliable
+[chains.wasmd-local]
 chain_type = "cosmos"
-chain_id = "provider"
-rpc_endpoint = "https://rpc.testnet.cosmos.network"
-ws_endpoint = "wss://rpc.testnet.cosmos.network/websocket"
+chain_id = "wasmd-testnet"
+rpc_endpoint = "http://localhost:26657"
+ws_endpoint = "ws://localhost:26657/websocket"
 
-[chains.cosmoshub-testnet.config]
+[chains.wasmd-local.config]
 type = "cosmos"
-address_prefix = "cosmos"
-gas_price = "0.025uatom"
+address_prefix = "wasm"
+gas_price = "0.025stake"
 trust_threshold = "1/3"
-trusting_period_hours = 336  # 14 days
-# Keys will be loaded from encrypted keystore
+trusting_period_hours = 336
 
-# Connection configurations
+# Connection configurations for local testing
 [[connections]]
 id = "connection-0"
 src_chain = "near-testnet"
-dst_chain = "cosmoshub-testnet"
+dst_chain = "wasmd-local"
 src_client_id = "07-tendermint-0"
 dst_client_id = "07-near-0"
 auto_relay = true
 
-# Metrics configuration
+# Metrics and monitoring
 [metrics]
 enabled = true
 host = "127.0.0.1"
-port = 3001
+port = 9090

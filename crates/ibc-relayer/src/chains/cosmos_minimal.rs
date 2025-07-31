@@ -145,7 +145,9 @@ impl CosmosChain {
 
     /// Query account information from Cosmos chain with retry logic
     async fn query_account(&mut self, address: &str) -> anyhow::Result<AccountInfo> {
-        let url = format!("{}/cosmos/auth/v1beta1/accounts/{}", self.rpc_endpoint, address);
+        // Convert RPC endpoint to REST API endpoint (replace port 26657 with 1317)
+        let rest_endpoint = self.rpc_endpoint.replace(":26657", ":1317");
+        let url = format!("{}/cosmos/auth/v1beta1/accounts/{}", rest_endpoint, address);
         let client = &self.client;
         let address_owned = address.to_string();
         

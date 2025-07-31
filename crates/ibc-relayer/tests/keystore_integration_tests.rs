@@ -62,7 +62,7 @@ mod keystore_integration_tests {
 
     fn create_test_cosmos_key() -> CosmosKey {
         CosmosKey {
-            address: "cosmos1test123".to_string(),
+            address: "wasm1zld8zz0kg6ehzjuwkzmjx87p7uzlfc430wzwev".to_string(), // Use actual relayer address from testnet
             private_key: vec![1; 32], // 32 bytes for secp256k1
             public_key: vec![2; 33],  // 33 bytes compressed
             key_type: "secp256k1".to_string(),
@@ -80,13 +80,13 @@ mod keystore_integration_tests {
 
     fn create_test_chain_config() -> ChainConfig {
         ChainConfig {
-            chain_id: "provider".to_string(),
+            chain_id: "wasmd-testnet".to_string(),
             chain_type: "cosmos".to_string(),
-            rpc_endpoint: "https://rest.provider-sentry-01.ics-testnet.polypore.xyz".to_string(),
-            ws_endpoint: None,
+            rpc_endpoint: "http://localhost:26657".to_string(),
+            ws_endpoint: Some("ws://localhost:26657/websocket".to_string()),
             config: ChainSpecificConfig::Cosmos {
-                address_prefix: "cosmos".to_string(),
-                gas_price: "0.025uatom".to_string(),
+                address_prefix: "wasm".to_string(),
+                gas_price: "0.025stake".to_string(),
                 trust_threshold: "1/3".to_string(),
                 trusting_period_hours: 336,
                 signer_key: None,
@@ -95,8 +95,12 @@ mod keystore_integration_tests {
     }
 
     #[tokio::test]
-    #[ignore = "Requires live testnet connection"]
-    async fn test_cosmos_chain_keystore_integration_success() {
+    async fn test_cosmos_chain_keystore_integration_with_local_testnet() {
+        use ibc_relayer::testnet::test_utils;
+        
+        // Ensure local testnet is running
+        let _testnet = test_utils::ensure_local_testnet().await
+            .expect("Failed to start local testnet");
         let (config, _temp_dir) = create_test_config();
         let mut mock_manager = MockKeyManager::new(config);
         
@@ -127,7 +131,7 @@ mod keystore_integration_tests {
                 assert!(result.is_ok(), "Failed to configure chain with key: {:?}", result.err());
                 
                 // Verify the chain is properly configured
-                assert_eq!(cosmos_chain.chain_id().await, "provider");
+                assert_eq!(cosmos_chain.chain_id().await, "wasmd-testnet");
             }
             _ => panic!("Expected Cosmos key"),
         }
@@ -208,22 +212,26 @@ mod keystore_integration_tests {
         }
     }
 
-    #[tokio::test] 
-    #[ignore = "Requires live testnet connection"]
-    async fn test_cosmos_chain_configuration_methods_comparison() {
+    #[tokio::test]
+    async fn test_cosmos_chain_configuration_methods_with_local_testnet() {
+        use ibc_relayer::testnet::test_utils;
+        
+        // Ensure local testnet is running
+        let _testnet = test_utils::ensure_local_testnet().await
+            .expect("Failed to start local testnet");
         let chain_config = create_test_chain_config();
         
-        // Test 1: Basic configuration (no private key)
+        // Test 1: Basic configuration (no private key) - use actual validator address from testnet
         let mut chain1 = CosmosChain::new(&chain_config).unwrap();
-        let result1 = chain1.configure_account("cosmos1testaddress".to_string()).await;
+        let result1 = chain1.configure_account("wasm14t2dssaqff4dh03xw52h94nmjaz78tpy4pvhzy".to_string()).await;
         assert!(result1.is_ok());
-        assert_eq!(chain1.chain_id().await, "provider");
+        assert_eq!(chain1.chain_id().await, "wasmd-testnet");
         
-        // Test 2: Direct key configuration
+        // Test 2: Direct key configuration - use actual test1 address from testnet
         let mut chain2 = CosmosChain::new(&chain_config).unwrap();
         let test_private_key = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3";
         let result2 = chain2.configure_account_with_key(
-            "cosmos1testdirect".to_string(),
+            "wasm1h7usln25x2el09xy6fn4p3ythqp96j76zwlmrg".to_string(),
             test_private_key.to_string()
         ).await;
         assert!(result2.is_ok());

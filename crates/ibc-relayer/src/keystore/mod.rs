@@ -176,7 +176,7 @@ impl KeyManager {
         // Determine key type based on chain ID
         if chain_id.contains("near") {
             Ok(KeyEntry::Near(NearKey::from_env_string(&key_data)?))
-        } else if chain_id.contains("cosmos") || chain_id.contains("hub") || chain_id == "provider" {
+        } else if chain_id.contains("cosmos") || chain_id.contains("hub") || chain_id.contains("testnet") || chain_id == "provider" {
             Ok(KeyEntry::Cosmos(CosmosKey::from_env_string(&key_data)?))
         } else {
             Err(KeyError::InvalidFormat(

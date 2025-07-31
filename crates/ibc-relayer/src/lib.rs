@@ -8,6 +8,7 @@ pub mod relay;
 #[cfg(feature = "metrics")]
 pub mod metrics;
 pub mod monitor;
+pub mod testnet;
 
 // Re-export commonly used types for convenience
 pub use config::{RelayerConfig, ChainConfig, ChainSpecificConfig, ConnectionConfig};
