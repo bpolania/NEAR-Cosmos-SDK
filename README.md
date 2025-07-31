@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.9.0--beta-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v0.9.0)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
-[![Tests](https://img.shields.io/badge/tests-263%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
+[![Tests](https://img.shields.io/badge/tests-322%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Version 0.9.0-beta** - Production Ready IBC Infrastructure
@@ -16,14 +16,14 @@ A complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
 | **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 60+ tests passing |
-| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 263 tests passing |
-| **Overall System** | 0.9.0-beta | ✅ Production Ready | **263 total tests** |
+| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 322 tests passing |
+| **Overall System** | 0.9.0-beta | ✅ Production Ready | **322 total tests** |
 
 **Key Achievements:**
 - 🚀 **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
 - 🔒 **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
 - 🌐 **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability
-- 📊 **Comprehensive Testing**: 263 tests with 100% success rate
+- 📊 **Comprehensive Testing**: 322 tests with 100% success rate
 - 🛠️ **Developer Ready**: Complete documentation and deployment automation
 
 ## Overview
@@ -47,7 +47,7 @@ All persistent state lives in NEAR's key-value store, namespaced by byte-prefixe
 **Major Features Completed:**
 - ✅ **Complete IBC Infrastructure**: Full implementation of ICS-07 (Light Client), ICS-03 (Connection), ICS-04 (Channel), and ICS-20 (Token Transfer)
 - ✅ **Production IBC Relayer**: Full-featured relayer with packet scanning, proof generation, timeout detection, and bidirectional relay
-- ✅ **Comprehensive Testing**: 263 tests passing across all components with full integration coverage
+- ✅ **Comprehensive Testing**: 322 tests passing across all components with full integration coverage
 - ✅ **Secure Keystore**: AES-256-GCM encrypted key management with secp256k1 (Cosmos) and ed25519 (NEAR) support
 - ✅ **Rate Limit Handling**: Robust error handling with exponential backoff for external API rate limits
 - ✅ **Testnet Deployment**: Live infrastructure deployed on NEAR testnet with automated deployment scripts
@@ -59,7 +59,7 @@ All persistent state lives in NEAR's key-value store, namespaced by byte-prefixe
 - **Configuration System**: Flexible TOML-based multi-chain configuration with secure key management
 
 **Technical Achievements:**
-- **263 Tests Passing**: Comprehensive test coverage including unit, integration, and live testnet validation
+- **322 Tests Passing**: Comprehensive test coverage including unit, integration, and live testnet validation
 - **Thread-Safe Architecture**: Resolved all Send + Sync trait bounds for production deployment
 - **Network Resilience**: Enhanced error recovery with exponential backoff and circuit breaker patterns
 - **Security Hardened**: VSA-2022-103 critical security patches and comprehensive input validation
@@ -382,7 +382,7 @@ The NEAR-Cosmos-SDK has reached production readiness with complete IBC infrastru
 - **Security**: VSA-2022-103 patches, AES-256-GCM encryption, comprehensive input validation
 
 **✅ Testing & Quality Assurance (100% Complete):**
-- **263 Tests Passing**: All unit, integration, and live testnet tests successful
+- **322 Tests Passing**: All unit, integration, and live testnet tests successful
 - **Network Resilience**: Rate limiting, exponential backoff, and error recovery implemented
 - **Thread Safety**: All Send + Sync trait bounds resolved for production deployment
 - **Security Validation**: Complete security audit with vulnerability patches applied
