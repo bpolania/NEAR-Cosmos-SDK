@@ -2,8 +2,8 @@
 name = "cosmos-sdk-contract"
 version = "0.9.0"
 edition = "2021"
-authors = ["NEAR-Cosmos-SDK Contributors"]
-description = "Complete Cosmos SDK runtime implemented as NEAR smart contract with full IBC infrastructure"
+authors = ["Proxima Contributors"]
+description = "Proxima smart contract: Complete Cosmos SDK runtime on NEAR with full IBC infrastructure"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bpolania/NEAR-Cosmos-SDK"
 homepage = "https://github.com/bpolania/NEAR-Cosmos-SDK"

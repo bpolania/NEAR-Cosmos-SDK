@@ -1,13 +1,15 @@
-# NEAR-Cosmos-SDK
+# Proxima
 
 [![Version](https://img.shields.io/badge/version-0.9.0--beta-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v0.9.0)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
 [![Tests](https://img.shields.io/badge/tests-322%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+*Bridging NEAR and Cosmos ecosystems*
+
 **Version 0.9.0-beta** - Production Ready IBC Infrastructure
 
-A complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC (Inter-Blockchain Communication) infrastructure, including a production-ready relayer for cross-chain communication between NEAR and Cosmos chains.
+Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC (Inter-Blockchain Communication) infrastructure, including a production-ready relayer for cross-chain communication between NEAR and Cosmos chains.
 
 ## 🎯 Current Release
 
@@ -29,7 +31,7 @@ A complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC 
 
 ## Overview
 
-This project recreates essential Cosmos modules without ABCI or Tendermint, including:
+Proxima recreates essential Cosmos modules without ABCI or Tendermint, including:
 
 - **Bank Module**: Fungible token balances with transfer and mint operations
 - **Staking Module**: Delegated tokens, validators, and unbonding periods
@@ -124,7 +126,7 @@ All persistent state lives in NEAR's key-value store, namespaced by byte-prefixe
 ## Architecture
 
 ```
-NEAR-Cosmos-SDK/          # Complete IBC Infrastructure Monorepo
+Proxima/                  # Complete IBC Infrastructure Monorepo
 ├── crates/
 │   ├── cosmos-sdk-contract/  # NEAR Smart Contract Implementation
 │   │   ├── src/
@@ -378,7 +380,7 @@ The codebase is structured to mirror Cosmos SDK patterns while adapting to NEAR'
 
 ### 🚀 **Version 0.9.0-beta - Production Ready Beta**
 
-The NEAR-Cosmos-SDK has reached production readiness with complete IBC infrastructure:
+Proxima has reached production readiness with complete IBC infrastructure:
 
 **✅ Core Infrastructure (100% Complete):**
 - **Cosmos SDK Modules**: Bank, Staking, Governance modules fully operational
@@ -414,7 +416,7 @@ The NEAR-Cosmos-SDK has reached production readiness with complete IBC infrastru
 
 ### 🎯 **Production Status Summary**
 
-The NEAR-Cosmos-SDK v0.9.0-beta provides a **complete, production-ready IBC infrastructure** enabling:
+Proxima v0.9.0-beta provides a **complete, production-ready IBC infrastructure** enabling:
 - **Cross-chain token transfers** between NEAR and Cosmos chains
 - **Secure key management** with enterprise-grade encryption
 - **Reliable packet relay** with comprehensive error handling
@@ -429,7 +431,7 @@ This represents a **fully functional bridge** between NEAR Protocol and the Cosm
 This repository now serves as a complete monorepo containing both the Cosmos SDK smart contract and IBC relayer:
 
 ```
-NEAR-Cosmos-SDK/
+Proxima/
 ├── crates/
 │   ├── cosmos-sdk-contract/    # NEAR smart contract (moved from root)
 │   └── ibc-relayer/           # IBC relayer implementation (NEW)

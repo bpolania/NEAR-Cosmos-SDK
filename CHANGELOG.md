@@ -1,6 +1,16 @@
 # Changelog
 
-This file tracks the development progress of the NEAR-Cosmos-SDK project.
+This file tracks the development progress of the Proxima project (formerly NEAR-Cosmos-SDK).
+
+## Project Rebrand (2025-01-31)
+
+**Proxima - Bridging NEAR and Cosmos**
+- 🎨 **New Name**: The project is now officially named **Proxima**
+- 🌉 **Meaning**: The name plays on the concepts of NEAR + Cosmos, representing the proximity between ecosystems
+- 📁 **Repository**: GitHub URL remains unchanged for continuity
+- 🔄 **Updates**: All documentation, package names, and branding updated to reflect new identity
+
+This rebrand better captures the project's mission of bringing NEAR and Cosmos ecosystems closer together.
 
 ## Repository Structure Changes (2025-07-30)
 
@@ -33,7 +43,7 @@ This change better reflects the current maturity status - production-ready code 
 
 ### Major Milestone Achievement
 
-**NEAR-Cosmos-SDK v1.0.0** marks the completion of the first production-ready IBC infrastructure bridging NEAR Protocol and the Cosmos ecosystem. This release represents months of development culminating in a fully functional, secure, and tested cross-chain communication system.
+**Proxima v1.0.0** marks the completion of the first production-ready IBC infrastructure bridging NEAR Protocol and the Cosmos ecosystem. This release represents months of development culminating in a fully functional, secure, and tested cross-chain communication system.
 
 ### 🎯 **Core Features Completed**
 

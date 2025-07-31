@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the plan to transform the NEAR-Cosmos-SDK from a Cosmos-inspired smart contract into a system that closely mimics a traditional Cosmos chain. While this isn't a traditional Cosmos chain yet, the implementation of these phases will bring us remarkably close to achieving full Cosmos SDK compatibility within NEAR's smart contract architecture.
+This document outlines the plan to transform Proxima from a Cosmos-inspired smart contract into a system that closely mimics a traditional Cosmos chain. While this isn't a traditional Cosmos chain yet, the implementation of these phases will bring us remarkably close to achieving full Cosmos SDK compatibility within NEAR's smart contract architecture.
 
 **Current Status**: ~40% Traditional Cosmos Chain Compatibility
 **Target Status**: ~75% Traditional Cosmos Chain Compatibility
@@ -62,7 +62,7 @@ Implement advanced patterns that make the contract behave like a full Cosmos SDK
 # Phase 1: Cosmos SDK Message & Query Compatibility - Detailed Plan
 
 ## Overview
-Transform the NEAR-Cosmos-SDK contract to accept and process standard Cosmos SDK message types and queries, enabling compatibility with Cosmos tooling while maintaining the existing NEAR architecture.
+Transform the Proxima contract to accept and process standard Cosmos SDK message types and queries, enabling compatibility with Cosmos tooling while maintaining the existing NEAR architecture.
 
 ## Timeline: 2-3 weeks
 

@@ -52,11 +52,11 @@ near-workspaces = { version = "0.11", features = ["experimental"] }
 
 [workspace.metadata]
 version = "0.9.0"
-authors = ["NEAR-Cosmos-SDK Contributors"]
+authors = ["Proxima Contributors"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bpolania/NEAR-Cosmos-SDK"
-description = "Complete IBC infrastructure for cross-chain communication between NEAR and Cosmos chains"
+description = "Proxima: Bridging NEAR and Cosmos ecosystems with complete IBC infrastructure"
 keywords = ["ibc", "near", "cosmos", "blockchain", "cross-chain"]
 categories = ["cryptography", "network-programming", "blockchain"]
 homepage = "https://github.com/bpolania/NEAR-Cosmos-SDK"
