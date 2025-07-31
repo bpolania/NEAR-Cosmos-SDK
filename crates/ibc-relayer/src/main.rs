@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
@@ -116,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn start_relayer(config: RelayerConfig) -> anyhow::Result<()> {
     use crate::chains::Chain;
-    use crate::relay::RelayEngine;
+    use crate::relay::{RelayEngine, create_client_update_manager};
     use crate::metrics::RelayerMetrics;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -135,6 +135,11 @@ async fn start_relayer(config: RelayerConfig) -> anyhow::Result<()> {
     let metrics_host = config.metrics.host.clone();
     let metrics_port = config.metrics.port;
     
+    // Create client update manager
+    let mut client_manager = create_client_update_manager(&config, chains.clone());
+    info!("Client update manager initialized with {} client mappings", 
+          client_manager.client_mappings_count());
+    
     // Start packet relay engine
     let relay_engine = RelayEngine::new(config, chains, metrics.clone());
     info!("Relay engine initialized with {} chains", relay_engine.chains.len());
@@ -147,7 +152,14 @@ async fn start_relayer(config: RelayerConfig) -> anyhow::Result<()> {
         let _ = registry.gather(); // Use registry
     }
     
-    warn!("Relayer implementation in progress");
+    // Start client update service in background
+    tokio::spawn(async move {
+        if let Err(e) = client_manager.start().await {
+            error!("Client update manager failed: {}", e);
+        }
+    });
+    
+    info!("✅ All services started successfully");
     
     // Keep running
     tokio::signal::ctrl_c().await?;
@@ -171,7 +183,48 @@ async fn create_channel(_config: &RelayerConfig, connection: &str, port: &str) -
     Ok(())
 }
 
-async fn show_status(_config: &RelayerConfig) -> anyhow::Result<()> {
-    info!("Relayer status: Not implemented yet");
+async fn show_status(config: &RelayerConfig) -> anyhow::Result<()> {
+    use crate::relay::create_client_update_manager;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use crate::chains::Chain;
+    
+    info!("📊 Relayer Status Report");
+    
+    // Initialize minimal setup for status checking
+    let chains: HashMap<String, Arc<dyn Chain>> = HashMap::new();
+    let client_manager = create_client_update_manager(config, chains);
+    
+    // Show configuration
+    info!("🔧 Configuration:");
+    info!("  - Chains configured: {}", config.chains.len());
+    info!("  - Connections configured: {}", config.connections.len());
+    info!("  - Metrics enabled: {}", config.metrics.enabled);
+    
+    // Show client mappings
+    info!("🔗 Client Mappings:");
+    for (chain_id, client_id) in client_manager.client_mappings() {
+        info!("  - Chain '{}' -> Client '{}'", chain_id, client_id);
+    }
+    
+    // Show connection status
+    info!("🌐 Connection Status:");
+    for connection in &config.connections {
+        info!("  - Connection '{}': {} ↔ {} (auto_relay: {})", 
+              connection.id, connection.src_chain, connection.dst_chain, connection.auto_relay);
+        info!("    Source client: {}, Dest client: {}", 
+              connection.src_client_id, connection.dst_client_id);
+    }
+    
+    // If we had active chains, we could show client status here
+    // let statuses = client_manager.get_status().await;
+    // info!("📊 Client Status:");
+    // for status in statuses {
+    //     info!("  - Client '{}' ({}): height {} -> {} (lag: {}, needs_update: {})",
+    //           status.client_id, status.chain_id, status.last_updated_height,
+    //           status.source_height, status.block_lag, status.needs_update);
+    // }
+    
+    info!("✅ Status check complete");
     Ok(())
 }

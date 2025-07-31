@@ -95,6 +95,7 @@ mod keystore_integration_tests {
     }
 
     #[tokio::test]
+    #[ignore = "Requires live testnet connection"]
     async fn test_cosmos_chain_keystore_integration_success() {
         let (config, _temp_dir) = create_test_config();
         let mut mock_manager = MockKeyManager::new(config);
@@ -207,7 +208,8 @@ mod keystore_integration_tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test] 
+    #[ignore = "Requires live testnet connection"]
     async fn test_cosmos_chain_configuration_methods_comparison() {
         let chain_config = create_test_chain_config();
         

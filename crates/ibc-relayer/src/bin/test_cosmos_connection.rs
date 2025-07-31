@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
     
     // Create Cosmos chain instance
-    let cosmos_chain = CosmosChain::new(&config)?;
+    let mut cosmos_chain = CosmosChain::new(&config)?;
     
     println!("✅ Created Cosmos chain instance");
     println!("   Chain ID: {}", cosmos_chain.chain_id().await);

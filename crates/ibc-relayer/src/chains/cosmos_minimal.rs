@@ -17,6 +17,7 @@ use prost::Message;
 use super::{Chain, ChainEvent};
 use crate::config::{ChainConfig, ChainSpecificConfig};
 use crate::keystore::{KeyManager, KeyEntry};
+use crate::relay::{ErrorRecoveryManager, ErrorRecoveryConfig};
 
 /// Enhanced Cosmos chain implementation
 /// Implements transaction building, signing, and broadcasting for IBC relay
@@ -31,6 +32,7 @@ pub struct CosmosChain {
     private_key: Option<Vec<u8>>,
     public_key: Option<Vec<u8>>,
     client: Client,
+    error_recovery: ErrorRecoveryManager,
 }
 
 impl CosmosChain {
@@ -55,6 +57,7 @@ impl CosmosChain {
                     private_key: None,
                     public_key: None,
                     client,
+                    error_recovery: ErrorRecoveryManager::new(ErrorRecoveryConfig::default()),
                 })
             }
             _ => Err("Invalid config type for Cosmos chain".into()),
@@ -140,31 +143,53 @@ impl CosmosChain {
         }
     }
 
-    /// Query account information from Cosmos chain
-    async fn query_account(&self, address: &str) -> Result<AccountInfo, Box<dyn std::error::Error + Send + Sync>> {
+    /// Query account information from Cosmos chain with retry logic
+    async fn query_account(&mut self, address: &str) -> anyhow::Result<AccountInfo> {
         let url = format!("{}/cosmos/auth/v1beta1/accounts/{}", self.rpc_endpoint, address);
+        let client = &self.client;
+        let address_owned = address.to_string();
         
-        let response = self.client.get(&url).send().await?;
-        let result: Value = response.json().await?;
+        let operation = || {
+            let url_clone = url.clone();
+            let client_ref = client;
+            let addr_clone = address_owned.clone();
+            
+            async move {
+                let response = client_ref.get(&url_clone).send().await?;
+                
+                if !response.status().is_success() {
+                    anyhow::bail!("HTTP error {}: Failed to query account", response.status());
+                }
+                
+                let result: Value = response.json().await?;
+                
+                // Parse account information
+                let account = &result["account"];
+                if account.is_null() {
+                    anyhow::bail!("Account {} not found", addr_clone);
+                }
+                
+                let account_number = account["account_number"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing account_number field"))?
+                    .parse()
+                    .map_err(|_| anyhow::anyhow!("Invalid account_number format"))?;
+                    
+                let sequence = account["sequence"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing sequence field"))?
+                    .parse()
+                    .map_err(|_| anyhow::anyhow!("Invalid sequence format"))?;
+                
+                Ok(AccountInfo {
+                    address: addr_clone,
+                    account_number,
+                    sequence,
+                })
+            }
+        };
         
-        // Parse account information
-        let account = &result["account"];
-        let account_number = account["account_number"]
-            .as_str()
-            .unwrap_or("0")
-            .parse()
-            .unwrap_or(0);
-        let sequence = account["sequence"]
-            .as_str()
-            .unwrap_or("0")
-            .parse()
-            .unwrap_or(0);
-        
-        Ok(AccountInfo {
-            address: address.to_string(),
-            account_number,
-            sequence,
-        })
+        self.error_recovery.execute_with_retry("query_account", operation).await
     }
 
     /// Build and broadcast a Cosmos transaction with real signing
@@ -173,16 +198,16 @@ impl CosmosChain {
         messages: Vec<Value>,
         memo: String,
         gas_limit: u64,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> anyhow::Result<String> {
         // Ensure account is configured
         if self.signer_address.is_none() {
-            return Err("Signer account not configured. Call configure_account() first.".into());
+            anyhow::bail!("Signer account not configured. Call configure_account() first.");
         }
 
         // Check if we have a private key for real signing
-        if let Some(private_key) = &self.private_key {
+        if let Some(private_key) = self.private_key.clone() {
             // Build and sign transaction with real cryptography
-            let tx_hash = self.build_sign_and_broadcast_tx(messages, memo, gas_limit, private_key).await?;
+            let tx_hash = self.build_sign_and_broadcast_tx(messages, memo, gas_limit, &private_key).await?;
             
             // Increment sequence for next transaction
             if let Some(seq) = &mut self.sequence {
@@ -210,13 +235,13 @@ impl CosmosChain {
         messages: Vec<Value>,
         memo: String,
         gas_limit: u64,
-    ) -> Result<CosmosTransaction, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> anyhow::Result<CosmosTransaction> {
         let signer_address = self.signer_address.as_ref()
-            .ok_or("Signer address not set")?;
+            .ok_or_else(|| anyhow::anyhow!("Signer address not set"))?;
         let _account_number = self.account_number
-            .ok_or("Account number not set")?;
+            .ok_or_else(|| anyhow::anyhow!("Account number not set"))?;
         let sequence = self.sequence
-            .ok_or("Sequence not set")?;
+            .ok_or_else(|| anyhow::anyhow!("Sequence not set"))?;
 
         // Parse gas price
         let (gas_amount, gas_denom) = self.parse_gas_price()?;
@@ -252,7 +277,7 @@ impl CosmosChain {
     }
 
     /// Parse gas price string (e.g., "0.025uatom")
-    fn parse_gas_price(&self) -> Result<(String, String), Box<dyn std::error::Error + Send + Sync>> {
+    fn parse_gas_price(&self) -> anyhow::Result<(String, String)> {
         let gas_price = &self.gas_price;
         
         // Find where digits end and denom begins
@@ -265,7 +290,7 @@ impl CosmosChain {
         }
         
         if split_pos == 0 {
-            return Err("Invalid gas price format".into());
+            anyhow::bail!("Invalid gas price format");
         }
         
         let amount = &gas_price[..split_pos];
@@ -292,12 +317,12 @@ impl CosmosChain {
     
     /// Build, sign, and broadcast a real Cosmos transaction
     async fn build_sign_and_broadcast_tx(
-        &self,
+        &mut self,
         messages: Vec<Value>,
         memo: String,
         gas_limit: u64,
         private_key: &[u8],
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> anyhow::Result<String> {
         println!("🔐 Building and signing real Cosmos transaction...");
         
         // Build transaction body
@@ -327,7 +352,7 @@ impl CosmosChain {
     }
     
     /// Build transaction body from messages
-    fn build_tx_body(&self, messages: Vec<Value>, memo: String) -> Result<TxBody, Box<dyn std::error::Error + Send + Sync>> {
+    fn build_tx_body(&self, messages: Vec<Value>, memo: String) -> anyhow::Result<TxBody> {
         // Convert JSON messages to Any protobuf messages
         let mut proto_messages = Vec::new();
         
@@ -351,8 +376,8 @@ impl CosmosChain {
     }
     
     /// Build auth info for transaction
-    fn build_auth_info(&self, gas_limit: u64) -> Result<AuthInfo, Box<dyn std::error::Error + Send + Sync>> {
-        let sequence = self.sequence.ok_or("Sequence not set")?;
+    fn build_auth_info(&self, gas_limit: u64) -> anyhow::Result<AuthInfo> {
+        let sequence = self.sequence.ok_or_else(|| anyhow::anyhow!("Sequence not set"))?;
         let (gas_amount, gas_denom) = self.parse_gas_price()?;
         
         let signer_info = SignerInfo {
@@ -388,8 +413,8 @@ impl CosmosChain {
     }
     
     /// Create sign doc for transaction signing
-    fn create_sign_doc(&self, tx_body: &TxBody, auth_info: &AuthInfo) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        let account_number = self.account_number.ok_or("Account number not set")?;
+    fn create_sign_doc(&self, tx_body: &TxBody, auth_info: &AuthInfo) -> anyhow::Result<Vec<u8>> {
+        let account_number = self.account_number.ok_or_else(|| anyhow::anyhow!("Account number not set"))?;
         
         let sign_doc = cosmos_sdk_proto::cosmos::tx::v1beta1::SignDoc {
             body_bytes: tx_body.encode_to_vec(),
@@ -402,15 +427,15 @@ impl CosmosChain {
     }
     
     /// Sign transaction with private key
-    fn sign_transaction(&self, sign_doc: &[u8], private_key: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    fn sign_transaction(&self, sign_doc: &[u8], private_key: &[u8]) -> anyhow::Result<Vec<u8>> {
         let secp = secp256k1::Secp256k1::new();
         let secret_key = secp256k1::SecretKey::from_slice(private_key)
-            .map_err(|e| format!("Invalid private key: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid private key: {}", e))?;
         
         // Hash the sign doc
         let hash = Sha256::digest(sign_doc);
         let message = secp256k1::Message::from_digest_slice(&hash)
-            .map_err(|e| format!("Invalid message hash: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Invalid message hash: {}", e))?;
         
         // Sign the hash
         let signature = secp.sign_ecdsa(&message, &secret_key);
@@ -419,47 +444,66 @@ impl CosmosChain {
         Ok(signature.serialize_der().to_vec())
     }
     
-    /// Broadcast transaction to Cosmos network
-    async fn broadcast_transaction(&self, tx: Tx) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let broadcast_req = BroadcastTxRequest {
-            tx_bytes: tx.encode_to_vec(),
-            mode: BroadcastMode::Sync as i32,
+    /// Broadcast transaction to Cosmos network with retry logic
+    async fn broadcast_transaction(&mut self, tx: Tx) -> anyhow::Result<String> {
+        let tx_bytes = tx.encode_to_vec();
+        let url = format!("{}/cosmos/tx/v1beta1/txs", self.rpc_endpoint);
+        let client = &self.client;
+        
+        let operation = || {
+            let tx_bytes_clone = tx_bytes.clone();
+            let url_clone = url.clone();
+            let client_ref = client;
+            
+            async move {
+                let broadcast_req = BroadcastTxRequest {
+                    tx_bytes: tx_bytes_clone,
+                    mode: BroadcastMode::Sync as i32,
+                };
+                
+                let response = client_ref
+                    .post(&url_clone)
+                    .header("Content-Type", "application/json")
+                    .json(&json!({
+                        "tx_bytes": general_purpose::STANDARD.encode(broadcast_req.tx_bytes),
+                        "mode": "BROADCAST_MODE_SYNC"
+                    }))
+                    .send()
+                    .await?;
+                
+                if !response.status().is_success() {
+                    anyhow::bail!("HTTP error {}: Failed to broadcast transaction", response.status());
+                }
+                
+                let result: Value = response.json().await?;
+                
+                if let Some(tx_response) = result.get("tx_response") {
+                    if let Some(code) = tx_response.get("code") {
+                        if code.as_u64() != Some(0) {
+                            let log = tx_response.get("raw_log")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("Unknown error");
+                            
+                            // Check if this is a recoverable error
+                            let error_msg = format!("Transaction failed with code {}: {}", code, log);
+                            anyhow::bail!("{}", error_msg);
+                        }
+                    }
+                    
+                    if let Some(txhash) = tx_response.get("txhash") {
+                        return Ok(txhash.as_str().unwrap_or("").to_string());
+                    }
+                }
+                
+                anyhow::bail!("Failed to get transaction hash from broadcast response")
+            }
         };
         
-        let url = format!("{}/cosmos/tx/v1beta1/txs", self.rpc_endpoint);
-        
-        let response = self.client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&json!({
-                "tx_bytes": general_purpose::STANDARD.encode(broadcast_req.tx_bytes),
-                "mode": "BROADCAST_MODE_SYNC"
-            }))
-            .send()
-            .await?;
-        
-        let result: Value = response.json().await?;
-        
-        if let Some(tx_response) = result.get("tx_response") {
-            if let Some(code) = tx_response.get("code") {
-                if code.as_u64() != Some(0) {
-                    let log = tx_response.get("raw_log")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("Unknown error");
-                    return Err(format!("Transaction failed with code {}: {}", code, log).into());
-                }
-            }
-            
-            if let Some(txhash) = tx_response.get("txhash") {
-                return Ok(txhash.as_str().unwrap_or("").to_string());
-            }
-        }
-        
-        Err("Failed to get transaction hash from broadcast response".into())
+        self.error_recovery.execute_with_retry("broadcast_transaction", operation).await
     }
     
     /// Simulate transaction broadcasting (placeholder for actual implementation)
-    async fn simulate_broadcast(&self, tx: CosmosTransaction) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    async fn simulate_broadcast(&self, tx: CosmosTransaction) -> anyhow::Result<String> {
         // In a real implementation, this would:
         // 1. Serialize the transaction to protobuf
         // 2. Sign the transaction with the private key
@@ -634,30 +678,50 @@ impl CosmosChain {
         Ok(tx_hash)
     }
 
-    /// Query Tendermint status for basic connectivity check
-    pub async fn query_status(&self) -> Result<TendermintStatus, Box<dyn std::error::Error + Send + Sync>> {
-        let response = self.client
-            .get(&format!("{}/status", self.rpc_endpoint))
-            .send()
-            .await?;
-
-        let result: Value = response.json().await?;
+    /// Query Tendermint status for basic connectivity check with retry logic
+    pub async fn query_status(&mut self) -> anyhow::Result<TendermintStatus> {
+        let url = format!("{}/status", self.rpc_endpoint);
+        let client = &self.client;
         
-        Ok(TendermintStatus {
-            chain_id: result["result"]["node_info"]["network"]
-                .as_str()
-                .unwrap_or("")
-                .to_string(),
-            latest_block_height: result["result"]["sync_info"]["latest_block_height"]
-                .as_str()
-                .unwrap_or("0")
-                .parse()
-                .unwrap_or(0),
-            latest_block_time: result["result"]["sync_info"]["latest_block_time"]
-                .as_str()
-                .unwrap_or("")
-                .to_string(),
-        })
+        let operation = || {
+            let url_clone = url.clone();
+            let client_ref = client;
+            
+            async move {
+                let response = client_ref.get(&url_clone).send().await?;
+
+                if !response.status().is_success() {
+                    anyhow::bail!("HTTP error {}: Failed to query status", response.status());
+                }
+
+                let result: Value = response.json().await?;
+                
+                let chain_id = result["result"]["node_info"]["network"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing chain_id in status response"))?
+                    .to_string();
+                    
+                let height_str = result["result"]["sync_info"]["latest_block_height"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing block height in status response"))?;
+                    
+                let latest_block_height = height_str.parse()
+                    .map_err(|_| anyhow::anyhow!("Invalid block height format"))?;
+                    
+                let latest_block_time = result["result"]["sync_info"]["latest_block_time"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string();
+                
+                Ok(TendermintStatus {
+                    chain_id,
+                    latest_block_height,
+                    latest_block_time,
+                })
+            }
+        };
+        
+        self.error_recovery.execute_with_retry("query_status", operation).await
     }
 }
 
@@ -806,8 +870,19 @@ impl Chain for CosmosChain {
 
     /// Get the latest block height from Tendermint
     async fn get_latest_height(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
-        let status = self.query_status().await?;
-        Ok(status.latest_block_height)
+        // We need a mutable reference but the trait requires immutable
+        // For now, create a temporary copy of the chain for the query
+        // In a real implementation, you might restructure to allow mutable access
+        let url = format!("{}/status", self.rpc_endpoint);
+        let response = self.client.get(&url).send().await?;
+        let result: Value = response.json().await?;
+        
+        let height_str = result["result"]["sync_info"]["latest_block_height"]
+            .as_str()
+            .unwrap_or("0");
+        let height = height_str.parse().unwrap_or(0);
+        
+        Ok(height)
     }
 
     /// Query packet commitment from Cosmos chain
@@ -1015,15 +1090,26 @@ impl Chain for CosmosChain {
 
     /// Health check - Verify connection to Tendermint RPC
     async fn health_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let status = self.query_status().await?;
+        // Simple health check without retry logic to avoid trait issues
+        let url = format!("{}/status", self.rpc_endpoint);
+        let response = self.client.get(&url).send().await?;
+        let result: Value = response.json().await?;
+        
+        let chain_id = result["result"]["node_info"]["network"]
+            .as_str()
+            .unwrap_or("");
+        let height_str = result["result"]["sync_info"]["latest_block_height"]
+            .as_str()
+            .unwrap_or("0");
+        let height: u64 = height_str.parse().unwrap_or(0);
         
         // Verify we can connect and get a reasonable response
-        if status.chain_id.is_empty() || status.latest_block_height == 0 {
+        if chain_id.is_empty() || height == 0 {
             return Err("Cosmos chain health check failed: invalid status response".into());
         }
         
         println!("Cosmos chain health check: OK (chain_id: {}, height: {})", 
-                 status.chain_id, status.latest_block_height);
+                 chain_id, height);
         Ok(())
     }
 }

@@ -25,7 +25,7 @@ fn create_test_cosmos_chain() -> CosmosChain {
 
 #[tokio::test]
 async fn test_cosmos_chain_connectivity() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test basic connectivity
     let chain_id = cosmos_chain.chain_id().await;
@@ -45,7 +45,7 @@ async fn test_cosmos_chain_connectivity() {
 
 #[tokio::test] 
 async fn test_packet_commitment_query() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test querying a non-existent packet commitment
     let result = cosmos_chain.query_packet_commitment(
@@ -70,7 +70,7 @@ async fn test_packet_commitment_query() {
 
 #[tokio::test]
 async fn test_packet_acknowledgment_query() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test querying a non-existent packet acknowledgment
     let result = cosmos_chain.query_packet_acknowledgment(
@@ -95,7 +95,7 @@ async fn test_packet_acknowledgment_query() {
 
 #[tokio::test]
 async fn test_packet_receipt_query() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test querying a non-existent packet receipt
     let result = cosmos_chain.query_packet_receipt(
@@ -120,7 +120,7 @@ async fn test_packet_receipt_query() {
 
 #[tokio::test]
 async fn test_next_sequence_recv_query() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test querying next sequence receive
     let result = cosmos_chain.query_next_sequence_recv(
@@ -142,7 +142,7 @@ async fn test_next_sequence_recv_query() {
 
 #[tokio::test]
 async fn test_cosmos_status_query() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test status query
     match cosmos_chain.query_status().await {
@@ -195,7 +195,7 @@ async fn test_query_error_handling() {
 
 #[tokio::test] 
 async fn test_query_parameters_validation() {
-    let cosmos_chain = create_test_cosmos_chain();
+    let mut cosmos_chain = create_test_cosmos_chain();
     
     // Test with various parameter combinations
     let test_cases = vec![

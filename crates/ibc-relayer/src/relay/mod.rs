@@ -18,12 +18,16 @@ pub mod scanner;
 pub mod coordinator;
 pub mod timeout;
 pub mod bidirectional;
+pub mod client_update;
+pub mod error_recovery;
 
 // Re-export enhanced types
 pub use engine::RelayEngine as EnhancedRelayEngine;
 pub use packet::{PacketLifecycle, PacketState, PacketMetadata, ProcessingTimes};
 pub use processor::PacketProcessor;
 pub use proof::ProofGenerator;
+pub use client_update::{ClientUpdateManager, ClientUpdateConfig, ClientStatus, create_client_update_manager};
+pub use error_recovery::{ErrorRecoveryManager, ErrorRecoveryConfig, RecoverableError, RetryStats};
 
 /// Events that drive the relay engine
 #[derive(Debug, Clone)]
