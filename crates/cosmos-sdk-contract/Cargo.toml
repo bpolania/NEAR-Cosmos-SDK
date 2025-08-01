@@ -17,25 +17,25 @@ crate-type = ["cdylib"]
 # NEAR SDK for smart contract development
 near-sdk = { version = "5.1.0", features = ["legacy"] }
 
-# Use workspace dependencies for consistency
-borsh = { workspace = true }  
-serde = { workspace = true }
-serde_json = { workspace = true }
-ed25519-dalek = { workspace = true }
-sha2 = { workspace = true }
-hex = { workspace = true }
-chrono = { workspace = true }
+# Use specific versions since contract is excluded from workspace
+borsh = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ed25519-dalek = { version = "2.0", features = ["serde"] }
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
 
 # NEAR-specific dependencies
 schemars = "0.8"
 
 [dev-dependencies]
-# Use workspace dependencies for testing
-near-workspaces = { workspace = true }
-tokio = { workspace = true }
-anyhow = { workspace = true }
-reqwest = { workspace = true }
-base64 = { workspace = true }
+# Use specific versions for testing since contract is excluded from workspace
+near-workspaces = { version = "0.11", features = ["experimental"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+reqwest = { version = "0.12", features = ["json"] }
+base64 = "0.21"
 
 # NEAR SDK testing features
 near-sdk = { version = "5.1.0", features = ["unit-testing"] }
