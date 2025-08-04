@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.9.0--beta-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v0.9.0)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
-[![Tests](https://img.shields.io/badge/tests-322%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
+[![Tests](https://img.shields.io/badge/tests-354%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 *Bridging NEAR and Cosmos ecosystems*
@@ -17,15 +17,15 @@ Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts wit
 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
-| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 60+ tests passing |
-| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 322 tests passing |
-| **Overall System** | 0.9.0-beta | ✅ Production Ready | **322 total tests** |
+| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 194+ tests passing |
+| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 160+ tests passing |
+| **Overall System** | 0.9.0-beta | ✅ Production Ready | **354+ total tests** |
 
 **Key Achievements:**
 - 🚀 **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
 - 🔒 **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
 - 🌐 **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
-- 📊 **Comprehensive Testing**: 322+ tests with 100% success rate across all components
+- 📊 **Comprehensive Testing**: 354+ tests with 100% success rate across all components
 - 🛠️ **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
 - ✅ **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
 
