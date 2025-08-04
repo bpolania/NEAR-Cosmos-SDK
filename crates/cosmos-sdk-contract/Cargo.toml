@@ -2,8 +2,8 @@
 name = "cosmos-sdk-contract"
 version = "0.9.0"
 edition = "2021"
-authors = ["NEAR-Cosmos-SDK Contributors"]
-description = "Complete Cosmos SDK runtime implemented as NEAR smart contract with full IBC infrastructure"
+authors = ["Proxima Contributors"]
+description = "Proxima smart contract: Complete Cosmos SDK runtime on NEAR with full IBC infrastructure"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bpolania/NEAR-Cosmos-SDK"
 homepage = "https://github.com/bpolania/NEAR-Cosmos-SDK"
@@ -11,31 +11,47 @@ keywords = ["cosmos-sdk", "near", "ibc", "smart-contract", "cross-chain"]
 categories = ["cryptography", "network-programming", "blockchain"]
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # NEAR SDK for smart contract development
 near-sdk = { version = "5.1.0", features = ["legacy"] }
 
-# Use workspace dependencies for consistency
-borsh = { workspace = true }  
-serde = { workspace = true }
-serde_json = { workspace = true }
-ed25519-dalek = { workspace = true }
-sha2 = { workspace = true }
-hex = { workspace = true }
-chrono = { workspace = true }
+# Use specific versions since contract is excluded from workspace
+borsh = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ed25519-dalek = { version = "2.0", features = ["serde"] }
+sha2 = "0.10"
+hex = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+
+# Phase 2: Cosmos SDK transaction processing dependencies
+# Cryptography for Cosmos SDK signatures (secp256k1)
+k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
+ripemd = "0.1"
+bech32 = "0.9"
+
+# Protobuf serialization (start with JSON compatibility, migrate to protobuf later)
+prost = "0.12"
+prost-types = "0.12"
+
+# Additional utilities for transaction processing
+base64 = "0.21"
+
+# Enable WASM support for randomness (required by k256)
+getrandom = { version = "0.2", features = ["js"] }
 
 # NEAR-specific dependencies
 schemars = "0.8"
 
 [dev-dependencies]
-# Use workspace dependencies for testing
-near-workspaces = { workspace = true }
-tokio = { workspace = true }
-anyhow = { workspace = true }
-reqwest = { workspace = true }
-base64 = { workspace = true }
+# Use specific versions for testing since contract is excluded from workspace
+near-workspaces = { version = "0.11", features = ["experimental"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+reqwest = { version = "0.12", features = ["json"] }
+base64 = "0.21"
 
 # NEAR SDK testing features
 near-sdk = { version = "5.1.0", features = ["unit-testing"] }
