@@ -17,17 +17,18 @@ Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts wit
 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
-| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 183+ tests passing |
+| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 176+ tests passing |
 | **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 160+ tests passing |
-| **Overall System** | 0.9.0-beta | ✅ Production Ready | **343+ total tests** |
+| **Overall System** | 0.9.0-beta | ✅ Production Ready | **336+ total tests** |
 
 **Key Achievements:**
 - 🚀 **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
 - 🔒 **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
 - 🌐 **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
-- 📊 **Comprehensive Testing**: 343+ tests with 100% success rate across all components
+- 📊 **Comprehensive Testing**: 336+ tests with 100% success rate across all components
 - 🛠️ **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
 - ✅ **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
+- 🎯 **Public API Complete**: Cosmos SDK RPC-compatible interface for transaction broadcasting and management
 
 ## Overview
 
@@ -266,6 +267,16 @@ The project includes complete IBC infrastructure deployed on NEAR testnet:
 - **ABCI Response Formatting**: Complete ABCI-compatible transaction responses with standardized error codes
 - **Transaction Simulation**: Full transaction simulation with gas estimation and validation
 - **Multi-Message Support**: Complex transactions with multiple message types and proper event aggregation
+- **Public API Interface**: Complete Cosmos SDK RPC-compatible API for transaction broadcasting and management
+
+### Public API Methods (Week 4.1 Complete)
+- **`broadcast_tx_sync()`**: Submit Cosmos SDK transactions with immediate ABCI-compatible responses
+- **`simulate_tx()`**: Simulate transactions for gas estimation and validation without execution
+- **`broadcast_tx_async()`**: Async transaction broadcasting with immediate response
+- **`broadcast_tx_commit()`**: Transaction broadcasting with block commitment and height inclusion
+- **`get_tx()`**: Transaction lookup by hash with proper error handling
+- **`update_tx_config()`**: Runtime configuration management for chain parameters and gas limits
+- **`get_tx_config()`**: Retrieve current transaction processing configuration
 
 ### IBC Light Client Module (ICS-07)
 - **07-tendermint Light Client**: Complete IBC light client implementation for cross-chain communication

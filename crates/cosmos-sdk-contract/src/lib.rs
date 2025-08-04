@@ -19,7 +19,7 @@ use modules::ibc::channel::{ChannelModule, ChannelEnd, Order, Packet, Acknowledg
 use modules::ibc::channel::types::{PacketCommitment, PacketReceipt};
 use modules::ibc::transfer::{TransferModule, FungibleTokenPacketData, DenomTrace};
 
-use handler::{CosmosMessageHandler, HandleResponse, HandleResult, route_cosmos_message, success_result, create_event, validate_cosmos_address};
+use handler::{CosmosMessageHandler, HandleResponse, HandleResult, route_cosmos_message, success_result, create_event, validate_cosmos_address, CosmosTransactionHandler, TxProcessingConfig, TxResponse};
 use types::cosmos_messages::*;
 
 #[near_bindgen]
@@ -32,6 +32,7 @@ pub struct CosmosContract {
     ibc_connection_module: ConnectionModule,
     ibc_channel_module: ChannelModule,
     ibc_transfer_module: TransferModule,
+    tx_config: TxProcessingConfig,
     block_height: u64,
 }
 
@@ -39,6 +40,14 @@ pub struct CosmosContract {
 impl CosmosContract {
     #[init]
     pub fn new() -> Self {
+        let tx_config = TxProcessingConfig {
+            chain_id: "near-cosmos-sdk".to_string(),
+            max_gas_per_tx: 10_000_000,
+            gas_price: 1,
+            verify_signatures: false, // Disabled for development
+            check_sequences: false,   // Disabled for development
+        };
+        
         Self {
             bank_module: BankModule::new(),
             staking_module: StakingModule::new(),
@@ -47,6 +56,7 @@ impl CosmosContract {
             ibc_connection_module: ConnectionModule::new(),
             ibc_channel_module: ChannelModule::new(),
             ibc_transfer_module: TransferModule::new(),
+            tx_config,
             block_height: 0,
         }
     }
@@ -777,6 +787,117 @@ impl CosmosContract {
         route_cosmos_message(self, msg_type, msg_data)
     }
 
+    // ========================================================================
+    // COSMOS SDK PUBLIC API METHODS (Phase 2 Week 4.1)
+    // ========================================================================
+
+    /// Create a transaction handler on demand
+    fn create_transaction_handler(&self) -> CosmosTransactionHandler {
+        CosmosTransactionHandler::new(self.tx_config.clone())
+    }
+
+    /// Broadcast a transaction synchronously
+    /// 
+    /// This is the primary method for submitting Cosmos SDK transactions to the NEAR contract.
+    /// It processes the transaction immediately and returns the result.
+    /// 
+    /// # Arguments
+    /// * `tx_bytes` - Base64 encoded serialized Cosmos transaction
+    /// 
+    /// # Returns
+    /// * `TxResponse` - Complete ABCI-compatible transaction response
+    pub fn broadcast_tx_sync(&mut self, tx_bytes: Base64VecU8) -> TxResponse {
+        let mut handler = self.create_transaction_handler();
+        match handler.process_transaction(tx_bytes.0, self) {
+            Ok(response) => response,
+            Err(error) => TxResponse::error(error, None),
+        }
+    }
+
+    /// Simulate a transaction without executing it
+    /// 
+    /// Performs all validation and gas estimation without modifying state.
+    /// Useful for gas estimation, transaction validation, and dApp UX.
+    /// 
+    /// # Arguments
+    /// * `tx_bytes` - Base64 encoded serialized Cosmos transaction
+    /// 
+    /// # Returns
+    /// * `TxResponse` - Simulation response with gas usage and validation results
+    pub fn simulate_tx(&mut self, tx_bytes: Base64VecU8) -> TxResponse {
+        let mut handler = self.create_transaction_handler();
+        match handler.simulate_transaction(tx_bytes.0) {
+            Ok(response) => response,
+            Err(error) => TxResponse::error(error, None),
+        }
+    }
+
+    /// Broadcast transaction asynchronously (same as sync for NEAR)
+    /// 
+    /// On NEAR, all transactions are processed synchronously, so this method
+    /// behaves identically to broadcast_tx_sync for compatibility.
+    /// 
+    /// # Arguments
+    /// * `tx_bytes` - Base64 encoded serialized Cosmos transaction
+    /// 
+    /// # Returns
+    /// * `TxResponse` - Complete ABCI-compatible transaction response
+    pub fn broadcast_tx_async(&mut self, tx_bytes: Base64VecU8) -> TxResponse {
+        self.broadcast_tx_sync(tx_bytes)
+    }
+
+    /// Broadcast transaction and wait for commit (same as sync for NEAR)
+    /// 
+    /// On NEAR, transactions are immediately included in blocks, so this method
+    /// behaves identically to broadcast_tx_sync for compatibility.
+    /// 
+    /// # Arguments
+    /// * `tx_bytes` - Base64 encoded serialized Cosmos transaction
+    /// 
+    /// # Returns
+    /// * `TxResponse` - Complete ABCI-compatible transaction response with block inclusion
+    pub fn broadcast_tx_commit(&mut self, tx_bytes: Base64VecU8) -> TxResponse {
+        let mut response = self.broadcast_tx_sync(tx_bytes);
+        // On NEAR, we can set the height to current block since it's immediately included
+        response.height = self.block_height.to_string();
+        response
+    }
+
+    /// Get transaction by hash (placeholder implementation)
+    /// 
+    /// In a full implementation, this would query transaction history.
+    /// Currently returns error response as transaction storage is not implemented.
+    /// 
+    /// # Arguments
+    /// * `hash` - Transaction hash to lookup
+    /// 
+    /// # Returns
+    /// * `TxResponse` - Transaction response if found, error response otherwise
+    pub fn get_tx(&self, _hash: String) -> TxResponse {
+        // TODO: Implement transaction storage and retrieval
+        // This would require storing transactions in contract state
+        use crate::handler::TxProcessingError;
+        TxResponse::error(TxProcessingError::TransactionNotFound, None)
+    }
+
+    /// Update transaction processing configuration
+    /// 
+    /// Allows updating chain ID, gas limits, and other processing parameters.
+    /// 
+    /// # Arguments
+    /// * `config` - New transaction processing configuration
+    pub fn update_tx_config(&mut self, config: TxProcessingConfig) {
+        self.tx_config = config;
+    }
+
+    /// Get current transaction processing configuration
+    /// 
+    /// # Returns
+    /// * `TxProcessingConfig` - Current configuration
+    pub fn get_tx_config(&self) -> TxProcessingConfig {
+        self.tx_config.clone()
+    }
+
     // View functions
     pub fn get_block_height(&self) -> u64 {
         self.block_height
@@ -1426,3 +1547,6 @@ mod integration_tests {
         assert_eq!(response.events[0].r#type, "multi_send");
     }
 }
+
+#[cfg(test)]
+mod lib_tests;

@@ -3,6 +3,7 @@ use crate::handler::{TxDecoder, TxDecodingError, route_cosmos_message, HandleRes
 use crate::crypto::{CosmosSignatureVerifier, SignatureError, CosmosPublicKey};
 use crate::modules::auth::{AccountManager, AccountError, AccountConfig, FeeProcessor, FeeError, FeeConfig};
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::AccountId;
 use near_sdk::base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 
@@ -27,6 +28,10 @@ pub enum TxProcessingError {
     InvalidState(String),
     /// Sequence number mismatch (replay protection)
     SequenceMismatch { expected: u64, actual: u64 },
+    /// Message execution failed
+    MessageExecution(String),
+    /// Transaction not found
+    TransactionNotFound,
 }
 
 impl std::fmt::Display for TxProcessingError {
@@ -45,6 +50,8 @@ impl std::fmt::Display for TxProcessingError {
             TxProcessingError::SequenceMismatch { expected, actual } => {
                 write!(f, "Sequence mismatch: expected {}, got {}", expected, actual)
             }
+            TxProcessingError::MessageExecution(msg) => write!(f, "Message execution error: {}", msg),
+            TxProcessingError::TransactionNotFound => write!(f, "Transaction not found"),
         }
     }
 }
@@ -123,6 +130,8 @@ impl ABCICode {
             TxProcessingError::GasLimitExceeded { .. } => Self::OUT_OF_GAS,
             TxProcessingError::InvalidState(_) => Self::INVALID_REQUEST,
             TxProcessingError::SequenceMismatch { .. } => Self::INVALID_SEQUENCE,
+            TxProcessingError::MessageExecution(_) => Self::INTERNAL_ERROR,
+            TxProcessingError::TransactionNotFound => Self::UNKNOWN_REQUEST,
         }
     }
 }
@@ -315,7 +324,7 @@ pub struct Attribute {
 }
 
 /// Transaction processing configuration
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct TxProcessingConfig {
     /// Chain ID for signature verification
     pub chain_id: String,
@@ -388,7 +397,51 @@ impl CosmosTransactionHandler {
         }
     }
 
-    /// Process a complete Cosmos SDK transaction
+    /// Process a complete Cosmos SDK transaction with contract integration
+    pub fn process_transaction<T>(&mut self, raw_tx: Vec<u8>, contract: &mut T) -> Result<TxResponse, TxProcessingError>
+    where
+        T: crate::handler::CosmosMessageHandler,
+    {
+        // 1. Decode the transaction
+        let tx = self.tx_decoder.decode_cosmos_tx(raw_tx)?;
+
+        // 2. Validate transaction structure
+        self.validate_transaction(&tx)?;
+
+        // 3. Verify signatures (if enabled)
+        let recovered_keys = if self.config.verify_signatures {
+            self.verify_transaction_signatures(&tx)?
+        } else {
+            Vec::new()
+        };
+
+        // 4. Check account sequences (if enabled)
+        if self.config.check_sequences {
+            self.check_account_sequences(&tx, &recovered_keys)?;
+        }
+
+        // 5. Process transaction fees
+        let payer = if let (Some(_key), Some(address)) = (recovered_keys.get(0), self.account_manager.derive_addresses(&recovered_keys)?.get(0)) {
+            address.clone()
+        } else {
+            // Fallback to first signer address if available
+            // In a real implementation, this would be derived from public keys
+            "near-sdk-payer".to_string()
+        };
+        
+        let _total_fees = self.process_transaction_fees(&tx, &payer)?;
+
+        // 6. Process messages using the contract's message router
+        let message_responses = self.process_transaction_messages_with_contract(&tx, contract)?;
+
+        // 7. Update account sequences after successful message processing
+        self.update_account_sequences(&tx, &recovered_keys)?;
+
+        // 8. Create transaction response
+        Ok(self.create_transaction_response(&tx, message_responses))
+    }
+
+    /// Process a complete Cosmos SDK transaction (standalone version)
     pub fn process_cosmos_transaction(&mut self, raw_tx: Vec<u8>) -> Result<TxResponse, TxProcessingError> {
         // 1. Decode the transaction
         let tx = self.tx_decoder.decode_cosmos_tx(raw_tx)?;
@@ -567,6 +620,41 @@ impl CosmosTransactionHandler {
             responses.push(response);
         }
 
+        Ok(responses)
+    }
+
+    /// Process transaction messages using the contract's message router
+    fn process_transaction_messages_with_contract<T>(&self, tx: &CosmosTx, contract: &mut T) -> Result<Vec<HandleResult>, TxProcessingError>
+    where
+        T: crate::handler::CosmosMessageHandler,
+    {
+        let mut responses = Vec::new();
+        
+        for message in &tx.body.messages {
+            // Use the message router to process each message
+            let response = crate::handler::route_cosmos_message(contract, message.type_url.clone(), near_sdk::json_types::Base64VecU8(message.value.clone()));
+            
+            // Check if the message execution was successful
+            if response.code != 0 {
+                return Err(TxProcessingError::MessageExecution(format!("Message execution failed with code {}: {}", response.code, response.log)));
+            }
+            
+            // Convert HandleResponse to HandleResult
+            let handle_result = HandleResult {
+                data: if response.data.is_empty() { Vec::new() } else { response.data },
+                log: response.log,
+                events: response.events.into_iter().map(|event| crate::handler::msg_router::Event {
+                    r#type: event.r#type,
+                    attributes: event.attributes.into_iter().map(|attr| crate::handler::msg_router::Attribute {
+                        key: attr.key,
+                        value: attr.value,
+                    }).collect(),
+                }).collect(),
+            };
+            
+            responses.push(handle_result);
+        }
+        
         Ok(responses)
     }
 
@@ -833,6 +921,8 @@ impl TxResponse {
             TxProcessingError::GasLimitExceeded { .. } => "sdk",
             TxProcessingError::InvalidState(_) => "sdk",
             TxProcessingError::SequenceMismatch { .. } => "sdk",
+            TxProcessingError::MessageExecution(_) => "app",
+            TxProcessingError::TransactionNotFound => "sdk",
         };
         
         Self {
