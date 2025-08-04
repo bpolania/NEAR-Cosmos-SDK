@@ -26,6 +26,22 @@ sha2 = "0.10"
 hex = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 
+# Phase 2: Cosmos SDK transaction processing dependencies
+# Cryptography for Cosmos SDK signatures (secp256k1)
+k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
+ripemd = "0.1"
+bech32 = "0.9"
+
+# Protobuf serialization (start with JSON compatibility, migrate to protobuf later)
+prost = "0.12"
+prost-types = "0.12"
+
+# Additional utilities for transaction processing
+base64 = "0.21"
+
+# Enable WASM support for randomness (required by k256)
+getrandom = { version = "0.2", features = ["js"] }
+
 # NEAR-specific dependencies
 schemars = "0.8"
 

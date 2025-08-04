@@ -7,6 +7,7 @@ pub type Balance = u128;
 mod modules;
 mod types;
 mod handler;
+mod crypto;
 
 use modules::bank::BankModule;
 use modules::gov::GovernanceModule;
