@@ -50,7 +50,7 @@ pub struct HandleResult {
 // ============================================================================
 
 /// Error types for message handling
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ContractError {
     /// Unknown message type
     UnknownMessageType(String),

@@ -1,4 +1,5 @@
 use crate::types::cosmos_tx::{CosmosTx, SignDoc, SignerInfo, SignMode};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
 /// Signature verification errors
@@ -44,7 +45,7 @@ impl std::fmt::Display for SignatureError {
 impl std::error::Error for SignatureError {}
 
 /// Cosmos SDK public key types
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub enum CosmosPublicKey {
     /// secp256k1 public key (33 bytes compressed or 65 bytes uncompressed)
     Secp256k1(Vec<u8>),
