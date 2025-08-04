@@ -1,4 +1,4 @@
-# Proxima
+# Proxima SDK
 
 [![Version](https://img.shields.io/badge/version-0.9.0--beta-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v0.9.0)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
