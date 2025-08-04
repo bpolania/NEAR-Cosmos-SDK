@@ -4,6 +4,7 @@ use crate::crypto::{CosmosSignatureVerifier, SignatureError, CosmosPublicKey};
 use crate::modules::auth::{AccountManager, AccountError, AccountConfig, FeeProcessor, FeeError, FeeConfig};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
+use near_sdk::base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 
 /// Transaction processing errors
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -86,20 +87,173 @@ impl From<FeeError> for TxProcessingError {
     }
 }
 
-/// Transaction response format compatible with Cosmos SDK
+/// ABCI standardized response codes
+/// Based on Cosmos SDK and Tendermint ABCI specifications
+#[derive(Clone, Debug, PartialEq)]
+pub struct ABCICode;
+
+impl ABCICode {
+    pub const OK: u32 = 0;
+    pub const INTERNAL_ERROR: u32 = 1;
+    pub const TX_DECODE_ERROR: u32 = 2;
+    pub const INVALID_SEQUENCE: u32 = 3;
+    pub const UNAUTHORIZED: u32 = 4;
+    pub const INSUFFICIENT_FUNDS: u32 = 5;
+    pub const UNKNOWN_REQUEST: u32 = 6;
+    pub const INVALID_ADDRESS: u32 = 7;
+    pub const INVALID_PUBKEY: u32 = 8;
+    pub const UNKNOWN_ADDRESS: u32 = 9;
+    pub const INSUFFICIENT_FEE: u32 = 10;
+    pub const MEMO_TOO_LARGE: u32 = 11;
+    pub const OUT_OF_GAS: u32 = 12;
+    pub const TX_TOO_LARGE: u32 = 13;
+    pub const INVALID_COINS: u32 = 14;
+    pub const INVALID_REQUEST: u32 = 15;
+    pub const TIMEOUT: u32 = 16;
+    
+    /// Convert TxProcessingError to appropriate ABCI code
+    pub fn from_error(error: &TxProcessingError) -> u32 {
+        match error {
+            TxProcessingError::DecodingError(_) => Self::TX_DECODE_ERROR,
+            TxProcessingError::SignatureError(_) => Self::UNAUTHORIZED,
+            TxProcessingError::ValidationError(_) => Self::INVALID_REQUEST,
+            TxProcessingError::MessageProcessingError(_) => Self::INTERNAL_ERROR,
+            TxProcessingError::AccountError(_) => Self::UNKNOWN_ADDRESS,
+            TxProcessingError::FeeError(_) => Self::INSUFFICIENT_FEE,
+            TxProcessingError::GasLimitExceeded { .. } => Self::OUT_OF_GAS,
+            TxProcessingError::InvalidState(_) => Self::INVALID_REQUEST,
+            TxProcessingError::SequenceMismatch { .. } => Self::INVALID_SEQUENCE,
+        }
+    }
+}
+
+/// Enhanced ABCI-compatible event attribute with proper encoding support
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ABCIAttribute {
+    /// Attribute key (base64 encoded bytes for full ABCI compatibility)
+    pub key: String,
+    /// Attribute value (base64 encoded bytes for full ABCI compatibility)
+    pub value: String,
+    /// Whether this attribute should be indexed by block explorers
+    #[serde(default)]
+    pub index: bool,
+}
+
+impl ABCIAttribute {
+    /// Create new attribute from string key-value pair
+    pub fn new(key: &str, value: &str) -> Self {
+        Self {
+            key: BASE64.encode(key.as_bytes()),
+            value: BASE64.encode(value.as_bytes()),
+            index: false,
+        }
+    }
+    
+    /// Create new indexed attribute (for block explorer indexing)
+    pub fn new_indexed(key: &str, value: &str) -> Self {
+        Self {
+            key: BASE64.encode(key.as_bytes()),
+            value: BASE64.encode(value.as_bytes()),
+            index: true,
+        }
+    }
+    
+    /// Create attribute from raw bytes
+    pub fn from_bytes(key: &[u8], value: &[u8], index: bool) -> Self {
+        Self {
+            key: BASE64.encode(key),
+            value: BASE64.encode(value),
+            index,
+        }
+    }
+    
+    /// Decode key as string (for debugging/display)
+    pub fn decode_key(&self) -> Result<String, String> {
+        BASE64.decode(&self.key)
+            .map_err(|e| format!("Failed to decode key: {}", e))
+            .and_then(|bytes| String::from_utf8(bytes)
+                .map_err(|e| format!("Key is not valid UTF-8: {}", e)))
+    }
+    
+    /// Decode value as string (for debugging/display)
+    pub fn decode_value(&self) -> Result<String, String> {
+        BASE64.decode(&self.value)
+            .map_err(|e| format!("Failed to decode value: {}", e))
+            .and_then(|bytes| String::from_utf8(bytes)
+                .map_err(|e| format!("Value is not valid UTF-8: {}", e)))
+    }
+}
+
+/// Enhanced ABCI-compatible event
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ABCIEvent {
+    /// Event type
+    pub r#type: String,
+    /// Event attributes with proper ABCI encoding
+    pub attributes: Vec<ABCIAttribute>,
+}
+
+impl ABCIEvent {
+    /// Create new event with string attributes
+    pub fn new(event_type: &str, attributes: Vec<(&str, &str)>) -> Self {
+        Self {
+            r#type: event_type.to_string(),
+            attributes: attributes.into_iter()
+                .map(|(k, v)| ABCIAttribute::new(k, v))
+                .collect(),
+        }
+    }
+    
+    /// Add indexed attribute (for block explorer indexing)
+    pub fn with_indexed_attribute(mut self, key: &str, value: &str) -> Self {
+        self.attributes.push(ABCIAttribute::new_indexed(key, value));
+        self
+    }
+}
+
+/// Gas usage tracking for accurate ABCI reporting
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GasInfo {
+    /// Gas limit set in the transaction
+    pub gas_wanted: u64,
+    /// Actual gas consumed during execution
+    pub gas_used: u64,
+}
+
+impl GasInfo {
+    pub fn new(gas_wanted: u64, gas_used: u64) -> Self {
+        Self { gas_wanted, gas_used }
+    }
+    
+    /// Check if transaction ran out of gas
+    pub fn out_of_gas(&self) -> bool {
+        self.gas_used >= self.gas_wanted
+    }
+    
+    /// Calculate gas efficiency (used/wanted ratio)
+    pub fn efficiency(&self) -> f64 {
+        if self.gas_wanted == 0 {
+            0.0
+        } else {
+            (self.gas_used as f64) / (self.gas_wanted as f64)
+        }
+    }
+}
+
+/// Enhanced transaction response format with full ABCI compatibility
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TxResponse {
     /// Block height where transaction was included
     pub height: String,
     /// Transaction hash
     pub txhash: String,
-    /// Response code (0 = success)
+    /// ABCI response code (0 = success, see ABCICode for standard codes)
     pub code: u32,
-    /// Response data
+    /// Response data (base64 encoded for ABCI compatibility)
     pub data: String,
-    /// Raw log output
+    /// Raw log output (human readable)
     pub raw_log: String,
-    /// Structured logs per message
+    /// Structured logs per message with ABCI events
     pub logs: Vec<ABCIMessageLog>,
     /// Additional info
     pub info: String,
@@ -107,26 +261,30 @@ pub struct TxResponse {
     pub gas_wanted: String,
     /// Gas used (actual)
     pub gas_used: String,
-    /// Original transaction (optional)
+    /// Original transaction (optional, excluded in many queries for size)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tx: Option<CosmosTx>,
-    /// Timestamp
+    /// Timestamp in RFC3339 format
     pub timestamp: String,
-    /// Events emitted
-    pub events: Vec<Event>,
+    /// ABCI-compatible events emitted during transaction execution
+    pub events: Vec<ABCIEvent>,
+    /// Codespace for error categorization (e.g., "sdk", "ibc", "bank")
+    #[serde(default)]
+    pub codespace: String,
 }
 
-/// ABCI message log
+/// Enhanced ABCI message log with proper event handling
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ABCIMessageLog {
     /// Message index
     pub msg_index: u32,
-    /// Log message
+    /// Log message (human readable)
     pub log: String,
-    /// Events for this message
-    pub events: Vec<StringEvent>,
+    /// ABCI-compatible events for this message
+    pub events: Vec<ABCIEvent>,
 }
 
-/// Event structure
+/// Legacy event structure (kept for backwards compatibility with message router)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Event {
     /// Event type
@@ -135,22 +293,25 @@ pub struct Event {
     pub attributes: Vec<Attribute>,
 }
 
-/// Event attribute
+impl Event {
+    /// Convert legacy event to ABCI-compatible event
+    pub fn to_abci_event(&self) -> ABCIEvent {
+        ABCIEvent {
+            r#type: self.r#type.clone(),
+            attributes: self.attributes.iter()
+                .map(|attr| ABCIAttribute::new(&attr.key, &attr.value))
+                .collect(),
+        }
+    }
+}
+
+/// Legacy event attribute (kept for backwards compatibility)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Attribute {
     /// Attribute key
     pub key: String,
     /// Attribute value
     pub value: String,
-}
-
-/// String event (for logs)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct StringEvent {
-    /// Event type
-    pub r#type: String,
-    /// Event attributes as key-value pairs
-    pub attributes: Vec<Attribute>,
 }
 
 /// Transaction processing configuration
@@ -450,54 +611,85 @@ impl CosmosTransactionHandler {
         Ok(())
     }
 
+    /// Estimate actual gas usage based on transaction complexity and message results
+    fn estimate_gas_usage(&self, tx: &CosmosTx, message_responses: &[HandleResult]) -> u64 {
+        let base_gas = 21000u64; // Base transaction cost
+        let per_message_gas = 5000u64; // Cost per message
+        let per_event_gas = 500u64; // Cost per event
+        let per_byte_gas = 10u64; // Cost per byte of data
+        
+        let message_gas = tx.body.messages.len() as u64 * per_message_gas;
+        let event_gas = message_responses.iter()
+            .map(|r| r.events.len() as u64 * per_event_gas)
+            .sum::<u64>();
+        let data_gas = message_responses.iter()
+            .map(|r| r.data.len() as u64 * per_byte_gas)
+            .sum::<u64>();
+        
+        let estimated_gas = base_gas + message_gas + event_gas + data_gas;
+        
+        // Cap at the gas limit specified in the transaction
+        std::cmp::min(estimated_gas, tx.auth_info.fee.gas_limit)
+    }
+
     /// Create transaction response
     pub fn create_transaction_response(&self, tx: &CosmosTx, message_responses: Vec<HandleResult>) -> TxResponse {
         let txhash = tx.hash();
         let gas_wanted = tx.auth_info.fee.gas_limit.to_string();
         
-        // Convert message responses to logs and events
+        // Convert message responses to ABCI-compatible logs and events
         let mut logs = Vec::new();
         let mut all_events = Vec::new();
 
         for (i, response) in message_responses.iter().enumerate() {
+            // Convert message router events to ABCI events
+            let abci_events: Vec<ABCIEvent> = response.events.iter()
+                .map(|e| ABCIEvent {
+                    r#type: e.r#type.clone(),
+                    attributes: e.attributes.iter()
+                        .map(|attr| ABCIAttribute::new(&attr.key, &attr.value))
+                        .collect(),
+                })
+                .collect();
+
             let log = ABCIMessageLog {
                 msg_index: i as u32,
                 log: response.log.clone(),
-                events: response.events.iter().map(|e| StringEvent {
-                    r#type: e.r#type.clone(),
-                    attributes: e.attributes.iter().map(|a| Attribute {
-                        key: a.key.clone(),
-                        value: a.value.clone(),
-                    }).collect(),
-                }).collect(),
+                events: abci_events.clone(),
             };
             logs.push(log);
 
-            // Convert to Event format
-            for event in &response.events {
-                all_events.push(Event {
-                    r#type: event.r#type.clone(),
-                    attributes: event.attributes.iter().map(|a| Attribute {
-                        key: a.key.clone(),
-                        value: a.value.clone(),
-                    }).collect(),
-                });
-            }
+            // Add to global events list
+            all_events.extend(abci_events);
         }
 
+        // Calculate actual gas usage (for now, estimate based on transaction complexity)
+        let gas_used = self.estimate_gas_usage(tx, &message_responses);
+        
+        // Combine all message response data
+        let combined_data: Vec<u8> = message_responses.iter()
+            .flat_map(|r| r.data.iter())
+            .cloned()
+            .collect();
+        
         TxResponse {
             height: "0".to_string(), // Will be set by block processing
             txhash,
-            code: 0, // Success
-            data: "".to_string(),
-            raw_log: logs.iter().map(|l| l.log.clone()).collect::<Vec<_>>().join("; "),
+            code: ABCICode::OK,
+            data: BASE64.encode(&combined_data), // Base64 encoded response data
+            raw_log: if logs.is_empty() {
+                "Transaction executed successfully".to_string()
+            } else {
+                logs.iter().map(|l| l.log.clone()).collect::<Vec<_>>().join("; ")
+            },
             logs,
-            info: "".to_string(),
+            info: format!("gas_wanted: {}, gas_used: {}", gas_wanted, gas_used),
             gas_wanted: gas_wanted.clone(),
-            gas_used: gas_wanted, // For now, assume full gas usage
+            gas_used: gas_used.to_string(),
             tx: Some(tx.clone()),
             timestamp: chrono::Utc::now().to_rfc3339(),
             events: all_events,
+            codespace: "sdk".to_string(), // Standard Cosmos SDK codespace
         }
     }
 
@@ -628,24 +820,73 @@ impl CosmosTransactionHandler {
 }
 
 impl TxResponse {
-    /// Create an error response
+    /// Create an ABCI-compatible error response
     pub fn error(error: TxProcessingError, txhash: Option<String>) -> Self {
+        let abci_code = ABCICode::from_error(&error);
+        let codespace = match &error {
+            TxProcessingError::DecodingError(_) => "sdk",
+            TxProcessingError::SignatureError(_) => "sdk", 
+            TxProcessingError::ValidationError(_) => "sdk",
+            TxProcessingError::MessageProcessingError(_) => "app",
+            TxProcessingError::AccountError(_) => "sdk",
+            TxProcessingError::FeeError(_) => "sdk",
+            TxProcessingError::GasLimitExceeded { .. } => "sdk",
+            TxProcessingError::InvalidState(_) => "sdk",
+            TxProcessingError::SequenceMismatch { .. } => "sdk",
+        };
+        
         Self {
             height: "0".to_string(),
-            txhash: txhash.unwrap_or_else(|| "".to_string()),
-            code: 1, // Error
-            data: "".to_string(),
+            txhash: txhash.unwrap_or_default(),
+            code: abci_code,
+            data: BASE64.encode(&[]), // Empty data for error
             raw_log: error.to_string(),
             logs: Vec::new(),
-            info: "Transaction failed".to_string(),
+            info: format!("Transaction failed with code {}", abci_code),
             gas_wanted: "0".to_string(),
             gas_used: "0".to_string(),
             tx: None,
             timestamp: chrono::Utc::now().to_rfc3339(),
             events: Vec::new(),
+            codespace: codespace.to_string(),
         }
     }
+    
+    /// Create an ABCI-compatible error response with gas information
+    pub fn error_with_gas(error: TxProcessingError, txhash: Option<String>, gas_info: GasInfo) -> Self {
+        let mut response = Self::error(error, txhash);
+        response.gas_wanted = gas_info.gas_wanted.to_string();
+        response.gas_used = gas_info.gas_used.to_string();
+        response.info = format!("Transaction failed with code {}, gas_used: {}/{}", 
+                              response.code, gas_info.gas_used, gas_info.gas_wanted);
+        response
+    }
 
+    /// Add standard transaction events (for internal use)
+    pub fn add_standard_events(&mut self) {
+        // Add standard transaction event
+        let tx_event = ABCIEvent::new("tx", vec![
+            ("height", &self.height),
+            ("tx_hash", &self.txhash),
+            ("code", &self.code.to_string()),
+        ]);
+        self.events.insert(0, tx_event);
+        
+        // Add gas event
+        let gas_event = ABCIEvent::new("use_gas", vec![
+            ("gas_wanted", &self.gas_wanted),
+            ("gas_used", &self.gas_used),
+        ]);
+        self.events.push(gas_event);
+    }
+    
+    /// Get events of a specific type
+    pub fn get_events_by_type(&self, event_type: &str) -> Vec<&ABCIEvent> {
+        self.events.iter()
+            .filter(|e| e.r#type == event_type)
+            .collect()
+    }
+    
     /// Check if the transaction was successful
     pub fn is_success(&self) -> bool {
         self.code == 0
@@ -773,7 +1014,8 @@ mod tests {
         let response = TxResponse::error(error, Some("testhash".to_string()));
         
         assert_eq!(response.txhash, "testhash");
-        assert_eq!(response.code, 1);
+        assert_eq!(response.code, ABCICode::INVALID_REQUEST); // Now using ABCI codes
+        assert_eq!(response.codespace, "sdk");
         assert!(!response.is_success());
         assert!(response.error_message().unwrap().contains("test error"));
     }
@@ -904,5 +1146,175 @@ mod tests {
         // Check fees are cleared
         let empty_accumulated = handler.get_accumulated_fees();
         assert!(empty_accumulated.is_empty());
+    }
+
+    #[test]
+    fn test_abci_attribute_encoding() {
+        // Test basic attribute creation
+        let attr = ABCIAttribute::new("test_key", "test_value");
+        assert_eq!(attr.decode_key().unwrap(), "test_key");
+        assert_eq!(attr.decode_value().unwrap(), "test_value");
+        assert!(!attr.index);
+
+        // Test indexed attribute
+        let indexed_attr = ABCIAttribute::new_indexed("indexed_key", "indexed_value");
+        assert_eq!(indexed_attr.decode_key().unwrap(), "indexed_key");
+        assert_eq!(indexed_attr.decode_value().unwrap(), "indexed_value");
+        assert!(indexed_attr.index);
+
+        // Test raw bytes
+        let bytes_attr = ABCIAttribute::from_bytes(b"raw_key", b"raw_value", true);
+        assert_eq!(bytes_attr.decode_key().unwrap(), "raw_key");
+        assert_eq!(bytes_attr.decode_value().unwrap(), "raw_value");
+        assert!(bytes_attr.index);
+    }
+
+    #[test]
+    fn test_abci_event_creation() {
+        let event = ABCIEvent::new("transfer", vec![
+            ("from", "alice"),
+            ("to", "bob"),
+            ("amount", "1000"),
+        ]);
+
+        assert_eq!(event.r#type, "transfer");
+        assert_eq!(event.attributes.len(), 3);
+        
+        // Check all attributes are properly encoded
+        for attr in &event.attributes {
+            assert!(!attr.key.is_empty());
+            assert!(!attr.value.is_empty());
+            assert!(!attr.index); // Default to non-indexed
+        }
+
+        let indexed_event = event.with_indexed_attribute("height", "12345");
+        assert_eq!(indexed_event.attributes.len(), 4);
+        assert!(indexed_event.attributes[3].index); // Last attribute should be indexed
+    }
+
+    #[test]
+    fn test_abci_error_codes() {
+        // Test various error types map to correct ABCI codes
+        let decode_error = TxProcessingError::DecodingError(
+            crate::handler::TxDecodingError::InvalidFormat("test".to_string())
+        );
+        assert_eq!(ABCICode::from_error(&decode_error), ABCICode::TX_DECODE_ERROR);
+
+        let sig_error = TxProcessingError::SignatureError(
+            crate::crypto::SignatureError::InvalidSignature("test signature error".to_string())
+        );  
+        assert_eq!(ABCICode::from_error(&sig_error), ABCICode::UNAUTHORIZED);
+
+        let seq_error = TxProcessingError::SequenceMismatch { expected: 1, actual: 2 };
+        assert_eq!(ABCICode::from_error(&seq_error), ABCICode::INVALID_SEQUENCE);
+
+        let gas_error = TxProcessingError::GasLimitExceeded { limit: 100, used: 200 };
+        assert_eq!(ABCICode::from_error(&gas_error), ABCICode::OUT_OF_GAS);
+    }
+
+    #[test]
+    fn test_gas_info_tracking() {
+        let gas_info = GasInfo::new(100_000, 75_000);
+        assert_eq!(gas_info.gas_wanted, 100_000);
+        assert_eq!(gas_info.gas_used, 75_000);
+        assert!(!gas_info.out_of_gas());
+        assert_eq!(gas_info.efficiency(), 0.75);
+
+        let out_of_gas_info = GasInfo::new(100_000, 100_000);
+        assert!(out_of_gas_info.out_of_gas());
+        assert_eq!(out_of_gas_info.efficiency(), 1.0);
+    }
+
+    #[test]
+    fn test_enhanced_tx_response_structure() {
+        let config = TxProcessingConfig::default();
+        let handler = CosmosTransactionHandler::new(config);
+        let tx = create_test_transaction();
+        
+        // Create mock responses
+        let responses = vec![HandleResult {
+            log: "Transfer successful".to_string(),
+            data: vec![1, 2, 3, 4],
+            events: vec![crate::handler::msg_router::Event {
+                r#type: "transfer".to_string(),
+                attributes: vec![
+                    crate::handler::msg_router::Attribute {
+                        key: "from".to_string(),
+                        value: "alice".to_string(),
+                    },
+                    crate::handler::msg_router::Attribute {
+                        key: "to".to_string(),
+                        value: "bob".to_string(),
+                    },
+                ],
+            }],
+        }];
+
+        let tx_response = handler.create_transaction_response(&tx, responses);
+
+        // Verify ABCI compliance
+        assert_eq!(tx_response.code, ABCICode::OK);
+        assert_eq!(tx_response.codespace, "sdk");
+        assert!(!tx_response.data.is_empty()); // Should be base64 encoded
+        assert_eq!(tx_response.logs.len(), 1);
+        assert_eq!(tx_response.events.len(), 1);
+        
+        // Verify event structure
+        let event = &tx_response.events[0];
+        assert_eq!(event.r#type, "transfer");
+        assert_eq!(event.attributes.len(), 2);
+        
+        // Verify attributes are base64 encoded
+        let from_attr = &event.attributes[0];
+        assert_eq!(from_attr.decode_key().unwrap(), "from");
+        assert_eq!(from_attr.decode_value().unwrap(), "alice");
+    }
+
+    #[test]
+    fn test_error_response_with_gas() {
+        let error = TxProcessingError::GasLimitExceeded { limit: 100_000, used: 100_000 };
+        let gas_info = GasInfo::new(100_000, 100_000);
+        
+        let response = TxResponse::error_with_gas(error, Some("test_hash".to_string()), gas_info);
+        
+        assert_eq!(response.code, ABCICode::OUT_OF_GAS);
+        assert_eq!(response.gas_wanted, "100000");
+        assert_eq!(response.gas_used, "100000");
+        assert!(response.info.contains("gas_used: 100000/100000"));
+    }
+
+    #[test]
+    fn test_tx_response_utility_methods() {
+        let config = TxProcessingConfig::default();
+        let handler = CosmosTransactionHandler::new(config);
+        let tx = create_test_transaction();
+        
+        let responses = vec![HandleResult {
+            log: "Test operation".to_string(),
+            data: vec![],
+            events: vec![
+                crate::handler::msg_router::Event {
+                    r#type: "transfer".to_string(),
+                    attributes: vec![],
+                },
+                crate::handler::msg_router::Event {
+                    r#type: "message".to_string(),
+                    attributes: vec![],
+                },
+            ],
+        }];
+
+        let mut tx_response = handler.create_transaction_response(&tx, responses);
+        tx_response.add_standard_events();
+
+        // Should have original events plus standard events (tx, use_gas)
+        assert!(tx_response.events.len() >= 4); // 2 original + tx + use_gas
+        
+        // Test event filtering
+        let tx_events = tx_response.get_events_by_type("tx");
+        assert_eq!(tx_events.len(), 1);
+        
+        let gas_events = tx_response.get_events_by_type("use_gas");
+        assert_eq!(gas_events.len(), 1);
     }
 }

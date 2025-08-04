@@ -17,21 +17,21 @@ Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts wit
 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
-| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 194+ tests passing |
+| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 183+ tests passing |
 | **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 160+ tests passing |
-| **Overall System** | 0.9.0-beta | ✅ Production Ready | **354+ total tests** |
+| **Overall System** | 0.9.0-beta | ✅ Production Ready | **343+ total tests** |
 
 **Key Achievements:**
 - 🚀 **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
 - 🔒 **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
 - 🌐 **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
-- 📊 **Comprehensive Testing**: 354+ tests with 100% success rate across all components
+- 📊 **Comprehensive Testing**: 343+ tests with 100% success rate across all components
 - 🛠️ **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
 - ✅ **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
 
 ## Overview
 
-Proxima recreates essential Cosmos modules without ABCI or Tendermint, including:
+Proxima recreates essential Cosmos modules with ABCI-compatible transaction processing (without Tendermint consensus), including:
 
 - **Bank Module**: Fungible token balances with transfer and mint operations
 - **Staking Module**: Delegated tokens, validators, and unbonding periods
@@ -258,6 +258,15 @@ The project includes complete IBC infrastructure deployed on NEAR testnet:
 - Calls `BeginBlock` and `EndBlock` hooks for all modules
 - Designed for cron.cat integration for regular execution
 
+### Cosmos Transaction Processing (Phase 2)
+- **Complete Cosmos SDK Compatibility**: Full support for CosmosTx, TxBody, AuthInfo, and Fee structures
+- **Signature Verification**: secp256k1 signature validation with replay protection via sequence numbers
+- **Account Management**: Cosmos-style account numbers and sequences with NEAR account ID compatibility
+- **Fee Processing**: Automatic conversion of Cosmos denominations to NEAR gas with multi-token support
+- **ABCI Response Formatting**: Complete ABCI-compatible transaction responses with standardized error codes
+- **Transaction Simulation**: Full transaction simulation with gas estimation and validation
+- **Multi-Message Support**: Complex transactions with multiple message types and proper event aggregation
+
 ### IBC Light Client Module (ICS-07)
 - **07-tendermint Light Client**: Complete IBC light client implementation for cross-chain communication
 - **Client State Management**: Create and update Tendermint light clients with trust parameters
@@ -370,7 +379,7 @@ The unified Cosmos SDK NEAR contract has been successfully tested on live NEAR t
 
 The codebase is structured to mirror Cosmos SDK patterns while adapting to NEAR's execution model. Key differences:
 
-1. **No ABCI**: Direct function calls instead of ABCI messages
+1. **ABCI-Compatible Responses**: ABCI-compatible transaction responses without full ABCI message protocol
 2. **Single Contract**: All modules in one contract vs. separate modules
 3. **NEAR Storage**: Key-value store instead of IAVL trees
 4. **Block Simulation**: Manual block increment vs. Tendermint consensus

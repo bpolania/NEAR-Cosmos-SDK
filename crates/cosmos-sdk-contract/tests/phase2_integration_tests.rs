@@ -298,8 +298,9 @@ mod integration_tests {
         
         // Verify event structure
         assert_eq!(tx_response.events[0].r#type, "test_event");
-        assert_eq!(tx_response.events[0].attributes[0].key, "test_key");
-        assert_eq!(tx_response.events[0].attributes[0].value, "test_value");
+        // ABCI attributes should be base64 encoded, so decode them for testing
+        assert_eq!(tx_response.events[0].attributes[0].decode_key().unwrap(), "test_key");
+        assert_eq!(tx_response.events[0].attributes[0].decode_value().unwrap(), "test_value");
     }
 
     #[test]
