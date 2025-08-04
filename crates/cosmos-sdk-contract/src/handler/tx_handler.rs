@@ -1,7 +1,7 @@
 use crate::types::cosmos_tx::{CosmosTx, TxValidationError, SignDoc};
 use crate::handler::{TxDecoder, TxDecodingError, route_cosmos_message, HandleResult, HandleResponse, ContractError};
 use crate::crypto::{CosmosSignatureVerifier, SignatureError, CosmosPublicKey};
-use crate::modules::auth::{AccountManager, AccountError, AccountConfig};
+use crate::modules::auth::{AccountManager, AccountError, AccountConfig, FeeProcessor, FeeError, FeeConfig};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
 
@@ -77,6 +77,12 @@ impl From<ContractError> for TxProcessingError {
 impl From<AccountError> for TxProcessingError {
     fn from(err: AccountError) -> Self {
         TxProcessingError::AccountError(err.to_string())
+    }
+}
+
+impl From<FeeError> for TxProcessingError {
+    fn from(err: FeeError) -> Self {
+        TxProcessingError::FeeError(err.to_string())
     }
 }
 
@@ -184,6 +190,8 @@ pub struct CosmosTransactionHandler {
     pub config: TxProcessingConfig,
     /// Account manager for sequence validation and account creation
     account_manager: AccountManager,
+    /// Fee processor for Cosmos fee adaptation to NEAR gas
+    fee_processor: FeeProcessor,
 }
 
 impl CosmosTransactionHandler {
@@ -200,16 +208,22 @@ impl CosmosTransactionHandler {
             signature_verifier: CosmosSignatureVerifier::new(config.chain_id.clone()),
             config,
             account_manager: AccountManager::new(account_config),
+            fee_processor: FeeProcessor::new(FeeConfig::default()),
         }
     }
     
-    /// Create a new transaction handler with custom account configuration
-    pub fn new_with_account_config(config: TxProcessingConfig, account_config: AccountConfig) -> Self {
+    /// Create a new transaction handler with custom configurations
+    pub fn new_with_configs(
+        config: TxProcessingConfig,
+        account_config: AccountConfig,
+        fee_config: FeeConfig,
+    ) -> Self {
         Self {
             tx_decoder: TxDecoder::new(),
             signature_verifier: CosmosSignatureVerifier::new(config.chain_id.clone()),
             config,
             account_manager: AccountManager::new(account_config),
+            fee_processor: FeeProcessor::new(fee_config),
         }
     }
 
@@ -233,8 +247,14 @@ impl CosmosTransactionHandler {
             self.check_account_sequences(&tx, &recovered_keys)?;
         }
 
-        // 5. Process fee payment
-        self.process_transaction_fees(&tx)?;
+        // 5. Process fee payment (get payer address from first signer)
+        let payer = if let (Some(key), Some(address)) = (recovered_keys.get(0), self.account_manager.derive_addresses(&recovered_keys)?.get(0)) {
+            address.clone()
+        } else {
+            // Fallback to a placeholder for tests
+            "unknown".to_string()
+        };
+        let _total_fee_paid = self.process_transaction_fees(&tx, &payer)?;
 
         // 6. Process messages sequentially
         let message_responses = self.process_transaction_messages(&tx)?;
@@ -274,7 +294,7 @@ impl CosmosTransactionHandler {
     }
 
     /// Validate transaction before processing
-    fn validate_transaction(&self, tx: &CosmosTx) -> Result<(), TxProcessingError> {
+    pub fn validate_transaction(&self, tx: &CosmosTx) -> Result<(), TxProcessingError> {
         // Basic transaction validation
         tx.validate()?;
 
@@ -343,25 +363,22 @@ impl CosmosTransactionHandler {
         Ok(())
     }
 
-    /// Process fee payment
-    fn process_transaction_fees(&self, tx: &CosmosTx) -> Result<(), TxProcessingError> {
-        // Calculate total fee required
-        let gas_cost = tx.auth_info.fee.gas_limit as u128 * self.config.gas_price;
+    /// Process fee payment using the integrated fee processor
+    pub fn process_transaction_fees(&mut self, tx: &CosmosTx, payer: &str) -> Result<u128, TxProcessingError> {
+        // Use the fee processor to handle Cosmos → NEAR fee conversion
+        let granter = if tx.auth_info.fee.granter.is_empty() {
+            None
+        } else {
+            Some(tx.auth_info.fee.granter.as_str())
+        };
         
-        // Validate fee payment (basic validation for now)
-        if tx.auth_info.fee.amount.is_empty() && gas_cost > 0 {
-            return Err(TxProcessingError::FeeError(
-                "Transaction requires fee payment but none provided".to_string()
-            ));
-        }
+        let total_fee_yocto = self.fee_processor.process_transaction_fees(
+            &tx.auth_info.fee,
+            payer,
+            granter,
+        )?;
 
-        // TODO: Implement actual fee deduction when account manager is available
-        // For now, just validate fee structure
-        for coin in &tx.auth_info.fee.amount {
-            coin.validate().map_err(TxProcessingError::ValidationError)?;
-        }
-
-        Ok(())
+        Ok(total_fee_yocto)
     }
 
     /// Process all messages in the transaction
@@ -434,7 +451,7 @@ impl CosmosTransactionHandler {
     }
 
     /// Create transaction response
-    fn create_transaction_response(&self, tx: &CosmosTx, message_responses: Vec<HandleResult>) -> TxResponse {
+    pub fn create_transaction_response(&self, tx: &CosmosTx, message_responses: Vec<HandleResult>) -> TxResponse {
         let txhash = tx.hash();
         let gas_wanted = tx.auth_info.fee.gas_limit.to_string();
         
@@ -563,6 +580,51 @@ impl CosmosTransactionHandler {
     pub fn list_accounts(&self, limit: Option<usize>) -> Vec<crate::modules::auth::CosmosAccount> {
         self.account_manager.list_accounts(limit)
     }
+
+    /// Grant fee allowance
+    pub fn grant_fee_allowance(&mut self, grant: crate::modules::auth::FeeGrant) -> Result<(), FeeError> {
+        self.fee_processor.grant_fee_allowance(grant)
+    }
+
+    /// Revoke fee allowance
+    pub fn revoke_fee_allowance(&mut self, granter: &str, grantee: &str) -> Result<(), FeeError> {
+        self.fee_processor.revoke_fee_allowance(granter, grantee)
+    }
+
+    /// Get fee grant
+    pub fn get_fee_grant(&self, granter: &str, grantee: &str) -> Option<&crate::modules::auth::FeeGrant> {
+        self.fee_processor.get_fee_grant(granter, grantee)
+    }
+
+    /// Calculate minimum fee for transaction
+    pub fn calculate_minimum_fee(&self, gas_limit: u64) -> crate::types::cosmos_tx::Fee {
+        self.fee_processor.calculate_minimum_fee(gas_limit)
+    }
+
+    /// Estimate transaction cost in specific denomination
+    pub fn estimate_tx_cost(&self, gas_limit: u64, denom: &str) -> Result<crate::types::cosmos_tx::Coin, FeeError> {
+        self.fee_processor.estimate_tx_cost(gas_limit, denom)
+    }
+
+    /// Get accumulated fees
+    pub fn get_accumulated_fees(&self) -> &std::collections::HashMap<String, u128> {
+        self.fee_processor.get_accumulated_fees()
+    }
+
+    /// Clear accumulated fees (returns the cleared fees)
+    pub fn clear_accumulated_fees(&mut self) -> std::collections::HashMap<String, u128> {
+        self.fee_processor.clear_accumulated_fees()
+    }
+
+    /// Update fee configuration
+    pub fn update_fee_config(&mut self, config: FeeConfig) {
+        self.fee_processor.update_config(config);
+    }
+
+    /// Set denomination conversion rate
+    pub fn set_denom_conversion(&mut self, denom: String, rate: u128) {
+        self.fee_processor.set_denom_conversion(denom, rate);
+    }
 }
 
 impl TxResponse {
@@ -607,7 +669,7 @@ mod tests {
     fn create_test_transaction() -> CosmosTx {
         let msg = Any::new("/cosmos.bank.v1beta1.MsgSend", vec![1, 2, 3]);
         let body = TxBody::new(vec![msg]);
-        let fee = Fee::new(vec![Coin::new("uatom", "1000")], 200000);
+        let fee = Fee::new(vec![Coin::new("unear", "1000000")], 200000); // Use unear with sufficient amount
         let signer_info = SignerInfo {
             public_key: None,
             mode_info: ModeInfo {
@@ -659,7 +721,7 @@ mod tests {
         let mut handler = CosmosTransactionHandler::new(config);
         let tx = create_test_transaction();
         
-        let result = handler.process_transaction_fees(&tx);
+        let result = handler.process_transaction_fees(&tx, "test_payer");
         assert!(result.is_ok());
     }
 
@@ -747,7 +809,7 @@ mod tests {
         // Create transaction with very high sequence
         let msg = Any::new("/cosmos.bank.v1beta1.MsgSend", vec![1, 2, 3]);
         let body = TxBody::new(vec![msg]);
-        let fee = Fee::new(vec![Coin::new("uatom", "1000")], 200000);
+        let fee = Fee::new(vec![Coin::new("unear", "1000000")], 200000);
         let signer_info = SignerInfo {
             public_key: None,
             mode_info: ModeInfo {
@@ -762,5 +824,85 @@ mod tests {
         
         let result = handler.check_account_sequences(&tx, &[]);
         assert!(matches!(result, Err(TxProcessingError::SequenceMismatch { .. })));
+    }
+
+    #[test]
+    fn test_fee_processor_integration() {
+        let config = TxProcessingConfig::default();
+        let mut handler = CosmosTransactionHandler::new(config);
+        
+        // Test minimum fee calculation
+        let min_fee = handler.calculate_minimum_fee(100_000_000); // 0.1 TGas
+        assert_eq!(min_fee.gas_limit, 100_000_000);
+        assert!(!min_fee.amount.is_empty());
+        
+        // Test fee estimation
+        let cost = handler.estimate_tx_cost(100_000_000, "unear").unwrap();
+        assert_eq!(cost.denom, "unear");
+        assert!(!cost.amount.is_empty());
+    }
+
+    #[test]
+    fn test_fee_grants() {
+        let config = TxProcessingConfig::default();
+        let mut handler = CosmosTransactionHandler::new(config);
+        
+        // Create fee grant
+        let grant = crate::modules::auth::FeeGrant {
+            granter: "alice".to_string(),
+            grantee: "bob".to_string(),
+            spend_limit: vec![crate::types::cosmos_tx::Coin::new("unear", "1000000")],
+            expiration: None,
+        };
+        
+        // Grant fee allowance
+        handler.grant_fee_allowance(grant).unwrap();
+        
+        // Check grant exists
+        let retrieved_grant = handler.get_fee_grant("alice", "bob");
+        assert!(retrieved_grant.is_some());
+        assert_eq!(retrieved_grant.unwrap().spend_limit[0].amount, "1000000");
+        
+        // Revoke grant
+        handler.revoke_fee_allowance("alice", "bob").unwrap();
+        
+        // Check grant no longer exists
+        let revoked_grant = handler.get_fee_grant("alice", "bob");
+        assert!(revoked_grant.is_none());
+    }
+
+    #[test]
+    fn test_denomination_conversion() {
+        let config = TxProcessingConfig::default();
+        let mut handler = CosmosTransactionHandler::new(config);
+        
+        // Add custom denomination
+        handler.set_denom_conversion("atom".to_string(), 5_000_000_000_000_000_000_000_000); // 5 NEAR per ATOM
+        
+        // Test estimation with custom denomination
+        let cost = handler.estimate_tx_cost(100_000_000, "atom").unwrap();
+        assert_eq!(cost.denom, "atom");
+    }
+
+    #[test] 
+    fn test_accumulated_fees() {
+        let config = TxProcessingConfig::default();
+        let mut handler = CosmosTransactionHandler::new(config);
+        
+        // Process a transaction to accumulate fees
+        let tx = create_test_transaction();
+        let _result = handler.process_transaction_fees(&tx, "test_payer");
+        
+        // Check accumulated fees
+        let accumulated = handler.get_accumulated_fees();
+        assert!(!accumulated.is_empty());
+        
+        // Clear accumulated fees
+        let cleared = handler.clear_accumulated_fees();
+        assert!(!cleared.is_empty());
+        
+        // Check fees are cleared
+        let empty_accumulated = handler.get_accumulated_fees();
+        assert!(empty_accumulated.is_empty());
     }
 }

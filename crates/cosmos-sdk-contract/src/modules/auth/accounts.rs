@@ -2,7 +2,7 @@ use crate::crypto::CosmosPublicKey;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
-use near_sdk::collections::LookupMap;
+use near_sdk::collections::{LookupMap, Vector};
 use std::collections::HashMap;
 
 /// Account management errors
@@ -106,6 +106,8 @@ pub struct AccountManager {
     accounts: LookupMap<String, CosmosAccount>,
     /// Map from NEAR account ID to Cosmos address
     near_to_cosmos: LookupMap<AccountId, String>,
+    /// Vector of account addresses for listing (since LookupMap doesn't support iteration)
+    account_addresses: Vector<String>,
     /// Next account number to assign
     next_account_number: u64,
     /// Configuration
@@ -139,7 +141,8 @@ impl AccountManager {
         Self {
             accounts: LookupMap::new(b"a"),
             near_to_cosmos: LookupMap::new(b"n"),
-            next_account_number: 0,
+            account_addresses: Vector::new(b"d"),
+            next_account_number: 1, // Start at 1 per Cosmos convention
             config,
         }
     }
@@ -178,6 +181,7 @@ impl AccountManager {
 
         // Store the account
         self.accounts.insert(&address, &account);
+        self.account_addresses.push(&address);
 
         Ok(account)
     }
@@ -202,6 +206,7 @@ impl AccountManager {
         // Store the account and mapping
         self.accounts.insert(&address, &account);
         self.near_to_cosmos.insert(&near_account_id, &address);
+        self.account_addresses.push(&address);
 
         Ok(account)
     }
@@ -293,15 +298,23 @@ impl AccountManager {
 
     /// Get total number of accounts
     pub fn get_account_count(&self) -> u64 {
-        self.next_account_number
+        self.next_account_number - 1
     }
 
     /// List all accounts (for debugging/admin purposes)
     /// Note: This is a placeholder implementation since LookupMap doesn't support iteration
-    pub fn list_accounts(&self, _limit: Option<usize>) -> Vec<CosmosAccount> {
-        // TODO: Implement proper account listing when needed
-        // For now, return empty vec as LookupMap doesn't support iteration
-        Vec::new()
+    pub fn list_accounts(&self, limit: Option<usize>) -> Vec<CosmosAccount> {
+        let mut accounts = Vec::new();
+        let max_items = limit.unwrap_or(self.account_addresses.len() as usize);
+        
+        for i in 0..std::cmp::min(max_items, self.account_addresses.len() as usize) {
+            let address = self.account_addresses.get(i as u64).unwrap();
+            if let Some(account) = self.accounts.get(&address) {
+                accounts.push(account);
+            }
+        }
+        
+        accounts
     }
 
     /// Update configuration
@@ -447,7 +460,7 @@ mod tests {
         
         let account = manager.create_account(public_key).unwrap();
         
-        assert_eq!(account.account_number, 0);
+        assert_eq!(account.account_number, 1);
         assert_eq!(account.sequence, 0);
         assert!(account.has_public_key());
         assert_eq!(manager.get_account_count(), 1);
@@ -460,13 +473,13 @@ mod tests {
         
         let account = manager.create_account_from_near_id(near_id.clone()).unwrap();
         
-        assert_eq!(account.account_number, 0);
+        assert_eq!(account.account_number, 1);
         assert_eq!(account.sequence, 0);
         assert_eq!(account.near_account_id, Some(near_id.clone()));
         
         // Should be able to retrieve by NEAR ID
         let retrieved = manager.get_account_by_near_id(&near_id).unwrap();
-        assert_eq!(retrieved.account_number, 0);
+        assert_eq!(retrieved.account_number, 1);
     }
 
     #[test]
@@ -538,11 +551,11 @@ mod tests {
         
         // First call should create account
         let account1 = manager.get_or_create_account(public_key.clone()).unwrap();
-        assert_eq!(account1.account_number, 0);
+        assert_eq!(account1.account_number, 1);
         
         // Second call should return existing account
         let account2 = manager.get_or_create_account(public_key).unwrap();
-        assert_eq!(account2.account_number, 0);
+        assert_eq!(account2.account_number, 1);
         assert_eq!(account1.address, account2.address);
         
         // Only one account should exist
@@ -592,13 +605,13 @@ mod tests {
             manager.create_account(public_key).unwrap();
         }
         
-        // List all accounts (returns empty due to LookupMap limitation)
+        // List all accounts (now works with Vector tracking)
         let all_accounts = manager.list_accounts(None);
-        assert_eq!(all_accounts.len(), 0); // LookupMap doesn't support iteration
+        assert_eq!(all_accounts.len(), 5); // Now returns actual accounts
         
-        // List limited accounts (returns empty due to LookupMap limitation)
+        // List limited accounts (now works with Vector tracking)
         let limited_accounts = manager.list_accounts(Some(3));
-        assert_eq!(limited_accounts.len(), 0); // LookupMap doesn't support iteration
+        assert_eq!(limited_accounts.len(), 3); // Now returns limited accounts
     }
 
     #[test]

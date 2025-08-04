@@ -11,7 +11,7 @@ keywords = ["cosmos-sdk", "near", "ibc", "smart-contract", "cross-chain"]
 categories = ["cryptography", "network-programming", "blockchain"]
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # NEAR SDK for smart contract development

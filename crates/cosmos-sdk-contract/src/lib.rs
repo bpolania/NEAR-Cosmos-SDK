@@ -4,10 +4,10 @@ use near_sdk::json_types::Base64VecU8;
 
 pub type Balance = u128;
 
-mod modules;
-mod types;
-mod handler;
-mod crypto;
+pub mod modules;
+pub mod types;
+pub mod handler;
+pub mod crypto;
 
 use modules::bank::BankModule;
 use modules::gov::GovernanceModule;
