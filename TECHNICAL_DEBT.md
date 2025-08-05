@@ -128,6 +128,38 @@ Phase 3 is not immediately necessary as Phase 2 provides ~85% Cosmos SDK compati
 
 ## Future Enhancements
 
+### Proxima Factory Pattern (Deferred from Phase 3)
+**Priority**: Medium  
+**Status**: Deferred  
+**Estimated Effort**: 2-3 weeks  
+
+**Description:**
+Implement a factory contract system to enable one-click deployment of Cosmos SDK applications with pre-configured templates and managed updates.
+
+**Requirements:**
+- [ ] Factory contract for automated Proxima deployments
+- [ ] Template system for common use cases (DeFi, DAO, Gaming)
+- [ ] Managed upgrade system for deployed applications
+- [ ] User-friendly deployment interface with web and CLI tools
+- [ ] Parameter injection and validation system
+- [ ] Template registry with access controls
+
+**Technical Considerations:**
+- Design factory contract architecture for template storage and deployment logic
+- Implement automated contract deployment with parameter injection
+- Create pre-configured templates for DeFi, DAO, and Gaming use cases
+- Add template validation and compatibility checking
+- Consider upgrade management and version control for deployed applications
+
+**Impact:**
+- **User Experience**: Simplified deployment process vs manual contract setup
+- **Developer Adoption**: Lower barrier to entry for new Proxima applications
+- **Ecosystem Growth**: Faster time-to-market for new projects
+- **Best Practices**: Standardized templates following Cosmos SDK patterns
+
+**Rationale for Deferral:**
+Prioritized CosmWasm compatibility over factory pattern due to higher strategic impact. Factory pattern provides incremental UX improvement, while CosmWasm enables ecosystem migration and developer acquisition from existing Cosmos projects.
+
 ### Advanced Features
 - [ ] **Transaction Batching**: Support for batching multiple transactions for efficiency
 - [ ] **Meta-transactions**: Support for gasless transactions with relayer patterns
