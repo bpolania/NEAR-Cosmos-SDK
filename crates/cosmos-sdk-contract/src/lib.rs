@@ -13,6 +13,7 @@ pub mod contracts;
 use modules::bank::BankModule;
 use modules::gov::GovernanceModule;
 use modules::staking::StakingModule;
+use modules::wasm::{WasmModule, WasmMsg, WasmQuery, CodeID, ContractAddress, InstantiateResponse, ExecuteResponse};
 use modules::ibc::client::tendermint::{TendermintLightClientModule, Header, Height};
 use modules::ibc::connection::{ConnectionModule, ConnectionEnd, Counterparty, Version};
 use modules::ibc::connection::types::{MerklePrefix};
@@ -29,6 +30,7 @@ pub struct CosmosContract {
     bank_module: BankModule,
     staking_module: StakingModule,
     governance_module: GovernanceModule,
+    wasm_module: WasmModule,
     ibc_client_module: TendermintLightClientModule,
     ibc_connection_module: ConnectionModule,
     ibc_channel_module: ChannelModule,
@@ -53,6 +55,7 @@ impl CosmosContract {
             bank_module: BankModule::new(),
             staking_module: StakingModule::new(),
             governance_module: GovernanceModule::new(),
+            wasm_module: WasmModule::new(),
             ibc_client_module: TendermintLightClientModule::new(),
             ibc_connection_module: ConnectionModule::new(),
             ibc_channel_module: ChannelModule::new(),
@@ -897,6 +900,77 @@ impl CosmosContract {
     /// * `TxProcessingConfig` - Current configuration
     pub fn get_tx_config(&self) -> TxProcessingConfig {
         self.tx_config.clone()
+    }
+
+    // CosmWasm Module Functions
+    /// Store WASM code and return CodeID
+    #[handle_result]
+    pub fn wasm_store_code(
+        &mut self,
+        wasm_byte_code: Vec<u8>,
+        source: Option<String>,
+        builder: Option<String>,
+        instantiate_permission: Option<modules::wasm::AccessConfig>,
+    ) -> Result<CodeID, String> {
+        let sender = env::predecessor_account_id();
+        self.wasm_module.store_code(&sender, wasm_byte_code, source, builder, instantiate_permission)
+    }
+
+    /// Instantiate a contract from stored code
+    #[handle_result]
+    pub fn wasm_instantiate(
+        &mut self,
+        code_id: CodeID,
+        msg: Vec<u8>,
+        funds: Vec<modules::wasm::Coin>,
+        label: String,
+        admin: Option<AccountId>,
+    ) -> Result<InstantiateResponse, String> {
+        let sender = env::predecessor_account_id();
+        self.wasm_module.instantiate_contract(&sender, code_id, msg, funds, label, admin)
+    }
+
+    /// Execute a message on a contract
+    #[handle_result]
+    pub fn wasm_execute(
+        &mut self,
+        contract_addr: ContractAddress,
+        msg: Vec<u8>,
+        funds: Vec<modules::wasm::Coin>,
+    ) -> Result<ExecuteResponse, String> {
+        let sender = env::predecessor_account_id();
+        self.wasm_module.execute_contract(&sender, &contract_addr, msg, funds)
+    }
+
+    /// Query a contract
+    #[handle_result]
+    pub fn wasm_smart_query(&self, contract_addr: ContractAddress, msg: Vec<u8>) -> Result<Vec<u8>, String> {
+        self.wasm_module.query_contract(&contract_addr, msg)
+    }
+
+    /// Get contract info
+    pub fn wasm_contract_info(&self, address: ContractAddress) -> Option<modules::wasm::ContractInfo> {
+        self.wasm_module.get_contract_info(&address)
+    }
+
+    /// Get code info
+    pub fn wasm_code_info(&self, code_id: CodeID) -> Option<modules::wasm::CodeInfo> {
+        self.wasm_module.get_code_info(code_id)
+    }
+
+    /// List stored codes
+    pub fn wasm_list_codes(&self, start_after: Option<CodeID>, limit: Option<u32>) -> Vec<modules::wasm::CodeInfo> {
+        self.wasm_module.list_codes(start_after, limit)
+    }
+
+    /// List contracts by code ID
+    pub fn wasm_list_contracts_by_code(
+        &self,
+        code_id: CodeID,
+        start_after: Option<String>,
+        limit: Option<u32>,
+    ) -> Vec<modules::wasm::ContractInfo> {
+        self.wasm_module.list_contracts_by_code(code_id, start_after, limit)
     }
 
     // View functions

@@ -20,8 +20,7 @@ use crate::contracts::cw20_base::{
 };
 
 /// Real CW20 Contract Wrapper that uses our actual CW20 implementation
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct RealCw20Wrapper {
     /// CosmWasm-compatible storage
     storage: CosmWasmStorage,
