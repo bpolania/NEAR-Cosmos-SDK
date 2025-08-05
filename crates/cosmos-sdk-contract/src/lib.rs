@@ -8,6 +8,7 @@ pub mod modules;
 pub mod types;
 pub mod handler;
 pub mod crypto;
+pub mod contracts;
 
 use modules::bank::BankModule;
 use modules::gov::GovernanceModule;

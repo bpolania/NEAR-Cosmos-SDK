@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use near_sdk::env;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 /// Memory manager that bridges CosmWasm's allocation model with NEAR's register system
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct CosmWasmMemoryManager {
     /// Simulated memory regions indexed by "pointer" (actually an ID)
     regions: HashMap<usize, Vec<u8>>,

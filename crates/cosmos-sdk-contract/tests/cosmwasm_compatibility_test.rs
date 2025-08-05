@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod cosmwasm_compatibility_tests {
     use near_sdk::test_utils::{accounts, VMContextBuilder};
-    use near_sdk::{testing_env, AccountId};
+    use near_sdk::{testing_env, AccountId, NearToken};
     use cosmos_sdk_contract::modules::cosmwasm::{
-        types::{*, self as cosmwasm_std},
+        types::*,
         storage::CosmWasmStorage,
         api::CosmWasmApi,
         deps::{CosmWasmDeps, CosmWasmDepsMut},
@@ -47,7 +47,7 @@ mod cosmwasm_compatibility_tests {
             // Store initial count
             deps.storage.set(COUNT_KEY, &msg.count.to_le_bytes());
             
-            Ok(Response::new()
+            Ok(Response::<Empty>::new()
                 .add_attribute("action", "instantiate")
                 .add_attribute("count", msg.count.to_string()))
         }
@@ -74,7 +74,7 @@ mod cosmwasm_compatibility_tests {
                     // Save new count
                     deps.storage.set(COUNT_KEY, &count.to_le_bytes());
                     
-                    Ok(Response::new()
+                    Ok(Response::<Empty>::new()
                         .add_attribute("action", "increment")
                         .add_attribute("count", count.to_string()))
                 }
@@ -83,7 +83,7 @@ mod cosmwasm_compatibility_tests {
                     // Save new count
                     deps.storage.set(COUNT_KEY, &count.to_le_bytes());
                     
-                    Ok(Response::new()
+                    Ok(Response::<Empty>::new()
                         .add_attribute("action", "reset")
                         .add_attribute("count", count.to_string()))
                 }
@@ -119,7 +119,7 @@ mod cosmwasm_compatibility_tests {
         let context = VMContextBuilder::new()
             .current_account_id(accounts(0))
             .predecessor_account_id(predecessor)
-            .attached_deposit(0)
+            .attached_deposit(NearToken::from_yoctonear(0))
             .build();
         testing_env!(context);
     }
@@ -235,7 +235,7 @@ mod cosmwasm_compatibility_tests {
         setup_test_context(accounts(1));
         
         // Test response with events and attributes
-        let response = Response::new()
+        let response = Response::<Empty>::new()
             .add_attribute("action", "transfer")
             .add_event(
                 Event::new("wasm")

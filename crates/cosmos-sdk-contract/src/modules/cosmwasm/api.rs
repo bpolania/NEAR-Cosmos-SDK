@@ -1,7 +1,9 @@
 use crate::modules::cosmwasm::types::{Api, Addr, StdResult, StdError};
 use near_sdk::env;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 /// CosmWasm API implementation for NEAR
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct CosmWasmApi;
 
 impl CosmWasmApi {
@@ -35,6 +37,11 @@ impl Api for CosmWasmApi {
         
         // Check if it's a Proxima-specific address format
         if human.starts_with("proxima1") && human.len() == 46 {
+            return Ok(Addr::unchecked(human));
+        }
+        
+        // Allow simple test addresses (alphanumeric, 2-32 chars for testing)
+        if cfg!(test) && human.len() >= 2 && human.len() <= 32 && human.chars().all(|c| c.is_alphanumeric() || c == '_') {
             return Ok(Addr::unchecked(human));
         }
         

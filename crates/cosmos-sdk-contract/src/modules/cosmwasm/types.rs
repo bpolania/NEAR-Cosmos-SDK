@@ -1,5 +1,7 @@
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::json_types::U128;
+use std::ops::{Add, Sub, AddAssign, SubAssign};
+use std::fmt;
 
 /// Re-export of core CosmWasm types that contracts expect
 /// These types maintain compatibility with cosmwasm-std
@@ -60,6 +62,22 @@ impl Uint128 {
     pub fn u128(&self) -> u128 {
         self.0
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn checked_add(self, other: Self) -> Result<Self, StdError> {
+        self.0.checked_add(other.0)
+            .map(Uint128)
+            .ok_or_else(|| StdError::generic_err("Overflow in checked_add"))
+    }
+
+    pub fn checked_sub(self, other: Self) -> Result<Self, StdError> {
+        self.0.checked_sub(other.0)
+            .map(Uint128)
+            .ok_or_else(|| StdError::generic_err("Overflow in checked_sub"))
+    }
 }
 
 impl From<u128> for Uint128 {
@@ -77,6 +95,40 @@ impl From<U128> for Uint128 {
 impl From<Uint128> for U128 {
     fn from(value: Uint128) -> Self {
         U128(value.0)
+    }
+}
+
+impl Add for Uint128 {
+    type Output = Self;
+    
+    fn add(self, other: Self) -> Self {
+        Uint128(self.0 + other.0)
+    }
+}
+
+impl Sub for Uint128 {
+    type Output = Self;
+    
+    fn sub(self, other: Self) -> Self {
+        Uint128(self.0 - other.0)
+    }
+}
+
+impl AddAssign for Uint128 {
+    fn add_assign(&mut self, other: Self) {
+        self.0 += other.0;
+    }
+}
+
+impl SubAssign for Uint128 {
+    fn sub_assign(&mut self, other: Self) {
+        self.0 -= other.0;
+    }
+}
+
+impl fmt::Display for Uint128 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -487,4 +539,27 @@ pub struct DepsMut<'a> {
     pub storage: &'a mut dyn Storage,
     pub api: &'a dyn Api,
     pub querier: QuerierWrapper<'a>,
+}
+
+// ============================================================================
+// Helper Functions for CosmWasm compatibility
+// ============================================================================
+
+/// Convert a serializable object to Binary
+pub fn to_binary<T>(obj: &T) -> StdResult<Binary>
+where
+    T: serde::Serialize,
+{
+    serde_json::to_vec(obj)
+        .map(Binary)
+        .map_err(|e| StdError::serialize_err(std::any::type_name::<T>(), e.to_string()))
+}
+
+/// Deserialize from a slice of bytes
+pub fn from_slice<T>(data: &[u8]) -> StdResult<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_slice(data)
+        .map_err(|e| StdError::parse_err(std::any::type_name::<T>(), e.to_string()))
 }
