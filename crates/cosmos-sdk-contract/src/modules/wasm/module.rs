@@ -245,7 +245,7 @@ impl WasmModule {
 
     // Helper methods
 
-    fn convert_access_config(&self, config: Option<AccessConfig>) -> AccessType {
+    pub fn convert_access_config(&self, config: Option<AccessConfig>) -> AccessType {
         match config {
             None | Some(AccessConfig::Everybody {}) => AccessType::Everybody,
             Some(AccessConfig::Nobody {}) => AccessType::Nobody,
@@ -262,7 +262,7 @@ impl WasmModule {
         }
     }
 
-    fn can_instantiate(&self, permission: &AccessType, sender: &AccountId) -> bool {
+    pub fn can_instantiate(&self, permission: &AccessType, sender: &AccountId) -> bool {
         match permission {
             AccessType::Nobody => false,
             AccessType::Everybody => true,
@@ -271,9 +271,13 @@ impl WasmModule {
         }
     }
 
-    fn get_next_instance_id(&self, code_id: CodeID) -> u64 {
+    pub fn get_next_instance_id(&self, code_id: CodeID) -> u64 {
         self.contracts_by_code.get(&code_id)
             .map(|contracts| contracts.len())
             .unwrap_or(0) as u64 + 1
+    }
+
+    pub fn get_next_code_id(&self) -> CodeID {
+        self.next_code_id
     }
 }

@@ -13,7 +13,7 @@ pub mod contracts;
 use modules::bank::BankModule;
 use modules::gov::GovernanceModule;
 use modules::staking::StakingModule;
-use modules::wasm::{WasmModule, WasmMsg, WasmQuery, CodeID, ContractAddress, InstantiateResponse, ExecuteResponse};
+use modules::wasm::{WasmModule, CodeID, ContractAddress, InstantiateResponse, ExecuteResponse};
 use modules::ibc::client::tendermint::{TendermintLightClientModule, Header, Height};
 use modules::ibc::connection::{ConnectionModule, ConnectionEnd, Counterparty, Version};
 use modules::ibc::connection::types::{MerklePrefix};

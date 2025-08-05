@@ -3,7 +3,7 @@
 /// This wrapper demonstrates how a real CW20 contract using cosmwasm_std imports
 /// can be integrated with our compatibility layer to run on NEAR.
 
-use near_sdk::{near_bindgen, PanicOnDefault, env, AccountId};
+use near_sdk::{env, AccountId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
@@ -79,10 +79,8 @@ pub struct Cw20WrapperResponse {
     pub events: Vec<String>,
 }
 
-#[near_bindgen]
 impl RealCw20Wrapper {
     /// Initialize the CW20 contract wrapper
-    #[init]
     pub fn new(init_msg: Cw20WrapperInitMsg) -> Self {
         let mut contract = Self {
             storage: CosmWasmStorage::new(),

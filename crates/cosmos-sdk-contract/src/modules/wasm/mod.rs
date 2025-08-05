@@ -6,5 +6,8 @@
 pub mod types;
 pub mod module;
 
+#[cfg(test)]
+mod tests;
+
 pub use types::*;
 pub use module::WasmModule;
