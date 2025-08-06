@@ -2,21 +2,22 @@
 /// 
 /// Following Cosmos SDK x/wasm module architecture for contract deployment and management
 
-use near_sdk::AccountId;
+// use near_sdk::AccountId; // Using String for JsonSchema compatibility
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
 /// CodeID uniquely identifies stored WASM code
 pub type CodeID = u64;
 
 /// ContractAddress is the unique address of an instantiated contract
-pub type ContractAddress = AccountId;
+pub type ContractAddress = String;
 
 /// CodeInfo stores metadata about uploaded WASM code
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct CodeInfo {
     pub code_id: CodeID,
-    pub creator: AccountId,
+    pub creator: String,
     pub code_hash: Vec<u8>,
     pub source: String,
     pub builder: String,
@@ -24,21 +25,21 @@ pub struct CodeInfo {
 }
 
 /// AccessType defines who can instantiate a contract from the code
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum AccessType {
     Nobody,
-    OnlyAddress(AccountId),
+    OnlyAddress(String),
     Everybody,
-    AnyOfAddresses(Vec<AccountId>),
+    AnyOfAddresses(Vec<String>),
 }
 
 /// ContractInfo stores metadata about an instantiated contract
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct ContractInfo {
-    pub address: ContractAddress,
+    pub address: String,
     pub code_id: CodeID,
-    pub creator: AccountId,
-    pub admin: Option<AccountId>,
+    pub creator: String,
+    pub admin: Option<String>,
     pub label: String,
     pub created: u64, // block height
     pub ibc_port_id: Option<String>,
@@ -88,7 +89,7 @@ pub enum WasmMsg {
 }
 
 /// AccessConfig defines instantiation permissions
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AccessConfig {
     Nobody {},
@@ -98,23 +99,25 @@ pub enum AccessConfig {
 }
 
 /// Coin represents a token amount
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Coin {
     pub denom: String,
     pub amount: String,
 }
 
 /// Response from contract instantiation
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct InstantiateResponse {
     pub address: String,
     pub data: Option<Vec<u8>>,
+    pub events: Vec<String>,
 }
 
 /// Response from contract execution
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct ExecuteResponse {
     pub data: Option<Vec<u8>>,
+    pub events: Vec<String>,
 }
 
 /// Query messages for the wasm module

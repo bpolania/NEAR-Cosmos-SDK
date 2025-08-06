@@ -60,4 +60,19 @@ impl BankModule {
         
         env::log_str(&format!("Bank: Burned {} from {}", amount, account));
     }
+
+    pub fn get_all_balances(&self, account: AccountId) -> Vec<(String, Balance)> {
+        // Return the single balance entry for the account
+        let balance = self.get_balance(&account);
+        if balance > 0 {
+            vec![("unear".to_string(), balance)]
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn get_total_supply(&self, _denom: String) -> Balance {
+        // For now, return 0 - in a full implementation, we'd track total supply
+        0
+    }
 }

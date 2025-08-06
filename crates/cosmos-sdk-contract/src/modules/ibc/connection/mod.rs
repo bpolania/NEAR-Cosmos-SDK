@@ -4,7 +4,7 @@ use near_sdk::env;
 
 pub mod types;
 
-pub use types::{ConnectionEnd, Counterparty, Version, State};
+pub use types::{ConnectionEnd, Counterparty, Version, State, MerklePrefix};
 
 /// IBC Connection Module
 /// 
@@ -419,5 +419,86 @@ impl ConnectionModule {
         ));
         
         Ok(())
+    }
+
+    // Alias methods to match contract interface expectations
+    pub fn connection_open_init(
+        &mut self,
+        client_id: String,
+        counterparty: Counterparty,
+        version: Option<Version>,
+        delay_period: u64,
+    ) -> String {
+        self.conn_open_init(client_id, counterparty, version, delay_period)
+    }
+
+    pub fn connection_open_try(
+        &mut self,
+        client_id: String,
+        previous_connection_id: Option<String>,
+        counterparty: Counterparty,
+        delay_period: u64,
+        counterparty_versions: Vec<Version>,
+        proof_init: Vec<u8>,
+        proof_client: Vec<u8>,
+        proof_consensus: Vec<u8>,
+        proof_height: u64,
+        _consensus_height: u64,
+    ) -> Result<String, String> {
+        self.conn_open_try(
+            previous_connection_id,
+            counterparty,
+            delay_period,
+            client_id,
+            proof_client,
+            proof_consensus,
+            proof_init,
+            proof_height,
+            counterparty_versions.into_iter().next().unwrap_or_default()
+        )
+    }
+
+    pub fn connection_open_ack(
+        &mut self,
+        connection_id: String,
+        counterparty_connection_id: String,
+        version: Version,
+        proof_try: Vec<u8>,
+        proof_client: Vec<u8>,
+        proof_consensus: Vec<u8>,
+        proof_height: u64,
+        _consensus_height: u64,
+    ) -> Result<(), String> {
+        self.conn_open_ack(
+            connection_id,
+            counterparty_connection_id,
+            version,
+            proof_client,
+            proof_try,
+            proof_consensus,
+            proof_height,
+        )
+    }
+
+    pub fn connection_open_confirm(
+        &mut self,
+        connection_id: String,
+        proof_ack: Vec<u8>,
+        proof_height: u64,
+    ) -> Result<(), String> {
+        self.conn_open_confirm(connection_id, proof_ack, proof_height)
+    }
+
+    pub fn get_all_connections(&self) -> Vec<String> {
+        self.get_connection_ids()
+    }
+
+    pub fn get_connections_for_client(&self, _client_id: String) -> Vec<String> {
+        // For now, return empty vector - in a full implementation, we'd maintain client->connections mapping
+        Vec::new()
+    }
+
+    pub fn connection_exists(&self, connection_id: String) -> bool {
+        self.connections.contains_key(&connection_id)
     }
 }

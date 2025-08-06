@@ -6,10 +6,10 @@
 use crate::modules::cosmwasm::types as cosmwasm_std;
 use cosmwasm_std::{
     to_binary, from_slice, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, StdError,
-    Uint128, Addr, Storage, Api, Order,
+    Uint128, Addr, Storage,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+// use std::collections::HashMap; // Not needed currently
 
 // ============================================================================
 // Contract State
@@ -22,7 +22,7 @@ pub struct Cw20Contract;
 const TOKEN_INFO_KEY: &[u8] = b"token_info";
 const MINTER_KEY: &[u8] = b"minter";
 const MARKETING_KEY: &[u8] = b"marketing";
-const LOGO_KEY: &[u8] = b"logo";
+const _LOGO_KEY: &[u8] = b"logo";
 
 // ============================================================================
 // Messages
@@ -452,7 +452,7 @@ fn execute_burn(
 
 fn execute_send(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     contract: String,
     amount: Uint128,
@@ -803,10 +803,10 @@ fn query_all_allowances(
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let owner_addr = deps.api.addr_validate(&owner)?;
-    let limit = limit.unwrap_or(30).min(100) as usize;
+    let _owner_addr = deps.api.addr_validate(&owner)?;
+    let _limit = limit.unwrap_or(30).min(100) as usize;
     
-    let start = start_after.as_ref().map(String::as_str);
+    let _start = start_after.as_ref().map(String::as_str);
     
     // In a real implementation, we would iterate over stored allowances
     // For our compatibility layer demo, we'll return an empty list
@@ -816,13 +816,13 @@ fn query_all_allowances(
 }
 
 fn query_all_accounts(
-    deps: Deps,
+    _deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> StdResult<Binary> {
-    let limit = limit.unwrap_or(30).min(100) as usize;
+    let _limit = limit.unwrap_or(30).min(100) as usize;
     
-    let start = start_after.as_ref().map(String::as_str);
+    let _start = start_after.as_ref().map(String::as_str);
     
     // In a real implementation, we would iterate over stored balances
     // For our compatibility layer demo, we'll return an empty list

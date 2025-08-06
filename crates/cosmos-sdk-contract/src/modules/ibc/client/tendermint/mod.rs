@@ -793,4 +793,16 @@ impl TendermintLightClientModule {
             header_time, current_time
         ));
     }
+
+    /// Get all client IDs
+    pub fn get_all_clients(&self) -> Vec<String> {
+        // Since LookupMap doesn't have keys(), we need to maintain a separate list
+        // For now, return empty vector - in a full implementation, we'd maintain a separate Vector
+        Vec::new()
+    }
+
+    /// Check if a client exists
+    pub fn client_exists(&self, client_id: String) -> bool {
+        self.client_states.contains_key(&client_id)
+    }
 }

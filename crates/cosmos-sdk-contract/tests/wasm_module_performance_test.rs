@@ -170,15 +170,17 @@ async fn test_bulk_instantiation_performance() -> Result<()> {
                 let code_id = code_ids[i % code_ids.len()]; // Cycle through available codes
                 
                 let (instantiate_result, instantiate_time) = measure_time(|| {
+                    let msg = serde_json::to_vec(&json!({
+                        "batch": batch_size,
+                        "instance": i,
+                        "timestamp": chrono::Utc::now().timestamp()
+                    })).unwrap_or_default();
+                    
                     admin
                         .call(contract.id(), "wasm_instantiate")
                         .args_json(json!({
                             "code_id": code_id,
-                            "msg": serde_json::to_vec(&json!({
-                                "batch": batch_size,
-                                "instance": i,
-                                "timestamp": chrono::Utc::now().timestamp()
-                            }))?,
+                            "msg": msg,
                             "funds": [],
                             "label": format!("Perf Contract Batch {} Instance {}", batch_size, i),
                             "admin": admin.id()
@@ -300,13 +302,14 @@ async fn test_query_performance_large_datasets() -> Result<()> {
     
     // Test listing all codes performance
     println!("Testing list_codes performance...");
-    let (list_codes_result, list_codes_time) = measure_time(|| {
+    let (list_codes_result, list_codes_time) = measure_time(|| async {
         contract
             .view("wasm_list_codes")
             .args_json(json!({
                 "start_after": null,
                 "limit": 100
             }))
+            .await
     }).await;
     
     let all_codes: Vec<serde_json::Value> = list_codes_result?.json()?;
@@ -367,7 +370,7 @@ async fn test_query_performance_large_datasets() -> Result<()> {
     let mut total_query_time = Duration::new(0, 0);
     
     for (i, &code_id) in code_ids.iter().take(5).enumerate() { // Test first 5 codes
-        let (contracts_result, query_time) = measure_time(|| {
+        let (contracts_result, query_time) = measure_time(|| async {
             contract
                 .view("wasm_list_contracts_by_code")
                 .args_json(json!({
@@ -375,6 +378,7 @@ async fn test_query_performance_large_datasets() -> Result<()> {
                     "start_after": null,
                     "limit": 10
                 }))
+                .await
         }).await;
         
         let contracts: Vec<serde_json::Value> = contracts_result?.json()?;
@@ -464,7 +468,7 @@ async fn test_concurrent_access_simulation() -> Result<()> {
                 let code = format!("concurrent_code_user_{}", i).into_bytes();
                 
                 let store_result = user
-                    .call(contract_id, "wasm_store_code")
+                    .call(&contract_id, "wasm_store_code")
                     .args_json(json!({
                         "wasm_byte_code": code,
                         "source": format!("https://github.com/concurrent/user{}", i),
@@ -537,7 +541,7 @@ async fn test_concurrent_access_simulation() -> Result<()> {
             
             let handle = tokio::spawn(async move {
                 let instantiate_result = user
-                    .call(contract_id, "wasm_instantiate")
+                    .call(&contract_id, "wasm_instantiate")
                     .args_json(json!({
                         "code_id": first_code_id,
                         "msg": serde_json::to_vec(&json!({

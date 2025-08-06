@@ -1,9 +1,8 @@
-use near_sdk::{near_bindgen, PanicOnDefault, env, AccountId};
+use near_sdk::{PanicOnDefault, env, AccountId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 
 use crate::modules::cosmwasm::{
-    types::*,
     storage::CosmWasmStorage,
     api::CosmWasmApi,
     deps::{CosmWasmDeps, CosmWasmDepsMut},
@@ -13,7 +12,6 @@ use crate::modules::cosmwasm::{
 
 /// CosmWasm contract wrapper that provides the lifecycle management
 /// This enables any CosmWasm contract to run on NEAR with full compatibility
-#[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct CosmWasmContractWrapper {
     /// CosmWasm-compatible storage
@@ -82,10 +80,8 @@ pub struct WrapperResponse {
     pub events: Vec<String>,
 }
 
-#[near_bindgen]
 impl CosmWasmContractWrapper {
     /// Initialize the CosmWasm contract wrapper
-    #[init]
     pub fn new(init_msg: WrapperInitMsg) -> Self {
         let mut contract = Self {
             storage: CosmWasmStorage::new(),

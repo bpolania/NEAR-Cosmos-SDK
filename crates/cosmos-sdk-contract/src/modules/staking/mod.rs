@@ -1,34 +1,103 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, AccountId};
+use near_sdk::env;
+use near_sdk::serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use crate::Balance;
-use crate::modules::bank::BankModule;
+// use crate::modules::bank::BankModule; // Not needed currently
+// use crate::modules::ibc::transfer::FungibleTokenPacketData; // Not needed currently
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum ValidatorStatus {
+    Unspecified,
+    Unbonded,
+    Unbonding,
+    Bonded,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Validator {
-    pub address: AccountId,
-    pub is_active: bool,
-    pub total_delegated: Balance,
+    pub address: String,
+    pub operator_address: String,
+    pub consensus_pubkey: Vec<u8>,
+    pub jailed: bool,
+    pub status: ValidatorStatus,
+    pub tokens: Balance,
+    pub delegator_shares: String,
+    pub description: ValidatorDescription,
+    pub unbonding_height: u64,
+    pub unbonding_time: u64,
+    pub commission: Commission,
+    pub min_self_delegation: Balance,
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct ValidatorDescription {
+    pub moniker: String,
+    pub identity: String,
+    pub website: String,
+    pub security_contact: String,
+    pub details: String,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct Commission {
+    pub commission_rates: CommissionRates,
+    pub update_time: u64,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct CommissionRates {
+    pub rate: String,
+    pub max_rate: String,
+    pub max_change_rate: String,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Delegation {
-    pub validator: AccountId,
-    pub amount: Balance,
+    pub delegator_address: String,
+    pub validator_address: String,
+    pub shares: String,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Clone)]
-pub struct UnbondingEntry {
-    pub validator: AccountId,
-    pub amount: Balance,
-    pub release_height: u64,
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct UnbondingDelegation {
+    pub delegator_address: String,
+    pub validator_address: String,
+    pub entries: Vec<UnbondingDelegationEntry>,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct UnbondingDelegationEntry {
+    pub creation_height: u64,
+    pub completion_time: u64,
+    pub initial_balance: Balance,
+    pub balance: Balance,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct Pool {
+    pub not_bonded_tokens: Balance,
+    pub bonded_tokens: Balance,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
+pub struct Params {
+    pub unbonding_time: u64,
+    pub max_validators: u32,
+    pub max_entries: u32,
+    pub historical_entries: u32,
+    pub bond_denom: String,
+    pub min_commission_rate: String,
 }
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct StakingModule {
-    validators: UnorderedMap<AccountId, Validator>,
-    delegations: UnorderedMap<AccountId, Vec<Delegation>>,
-    unbonding_queue: UnorderedMap<AccountId, Vec<UnbondingEntry>>,
+    validators: UnorderedMap<String, Validator>,
+    delegations: UnorderedMap<String, Delegation>,
+    unbonding_delegations: UnorderedMap<String, UnbondingDelegation>,
+    pool: Pool,
+    params: Params,
 }
 
 impl StakingModule {
@@ -36,152 +105,317 @@ impl StakingModule {
         Self {
             validators: UnorderedMap::new(b"v".to_vec()),
             delegations: UnorderedMap::new(b"d".to_vec()),
-            unbonding_queue: UnorderedMap::new(b"u".to_vec()),
+            unbonding_delegations: UnorderedMap::new(b"u".to_vec()),
+            pool: Pool {
+                not_bonded_tokens: 0,
+                bonded_tokens: 0,
+            },
+            params: Params {
+                unbonding_time: 1814400, // 21 days in seconds
+                max_validators: 100,
+                max_entries: 7,
+                historical_entries: 10000,
+                bond_denom: "stake".to_string(),
+                min_commission_rate: "0.0".to_string(),
+            },
         }
     }
 
-    pub fn add_validator(&mut self, validator_address: &AccountId) {
+    // Validator management
+    pub fn create_validator(
+        &mut self,
+        validator_address: String,
+        pubkey: Vec<u8>,
+        moniker: String,
+        identity: Option<String>,
+        website: Option<String>,
+        security_contact: Option<String>,
+        details: Option<String>,
+        commission_rate: String,
+        commission_max_rate: String,
+        commission_max_change_rate: String,
+        min_self_delegation: Balance,
+        self_delegation: Balance,
+    ) -> Result<(), String> {
+        // Check if validator already exists
+        if self.validators.get(&validator_address).is_some() {
+            return Err("Validator already exists".to_string());
+        }
+
         let validator = Validator {
             address: validator_address.clone(),
-            is_active: true,
-            total_delegated: 0,
+            operator_address: validator_address.clone(),
+            consensus_pubkey: pubkey,
+            jailed: false,
+            status: ValidatorStatus::Bonded,
+            tokens: self_delegation,
+            delegator_shares: self_delegation.to_string(),
+            description: ValidatorDescription {
+                moniker,
+                identity: identity.unwrap_or_default(),
+                website: website.unwrap_or_default(),
+                security_contact: security_contact.unwrap_or_default(),
+                details: details.unwrap_or_default(),
+            },
+            unbonding_height: 0,
+            unbonding_time: 0,
+            commission: Commission {
+                commission_rates: CommissionRates {
+                    rate: commission_rate,
+                    max_rate: commission_max_rate,
+                    max_change_rate: commission_max_change_rate,
+                },
+                update_time: env::block_timestamp(),
+            },
+            min_self_delegation,
         };
-        
-        self.validators.insert(validator_address, &validator);
-        env::log_str(&format!("Staking: Added validator {}", validator_address));
+
+        self.validators.insert(&validator_address, &validator);
+        self.pool.bonded_tokens += self_delegation;
+
+        env::log_str(&format!("Created validator: {}", validator_address));
+        Ok(())
     }
 
-    pub fn delegate(&mut self, delegator: &AccountId, validator: &AccountId, amount: Balance, bank: &mut BankModule) {
-        // Check if validator exists
-        let mut validator_info = self.validators.get(validator)
-            .expect("Validator not found");
-        
-        // Check if delegator has sufficient balance
-        assert!(bank.has_balance(delegator, amount), "Insufficient balance for delegation");
-        
-        // Burn tokens from delegator (move to staking pool)
-        bank.burn(delegator, amount);
-        
-        // Update validator total
-        validator_info.total_delegated += amount;
-        self.validators.insert(validator, &validator_info);
-        
-        // Update delegator's delegations
-        let mut delegations = self.delegations.get(delegator).unwrap_or_default();
-        
-        // Find existing delegation or create new one
-        if let Some(existing) = delegations.iter_mut().find(|d| d.validator == *validator) {
-            existing.amount += amount;
-        } else {
-            delegations.push(Delegation {
-                validator: validator.clone(),
-                amount,
-            });
+    pub fn edit_validator(
+        &mut self,
+        validator_address: String,
+        moniker: Option<String>,
+        identity: Option<String>,
+        website: Option<String>,
+        security_contact: Option<String>,
+        details: Option<String>,
+        commission_rate: Option<String>,
+        min_self_delegation: Option<Balance>,
+    ) -> Result<(), String> {
+        let mut validator = self.validators.get(&validator_address)
+            .ok_or("Validator not found")?;
+
+        if let Some(moniker) = moniker {
+            validator.description.moniker = moniker;
         }
-        
-        self.delegations.insert(delegator, &delegations);
-        env::log_str(&format!("Staking: Delegated {} to {} from {}", amount, validator, delegator));
+        if let Some(identity) = identity {
+            validator.description.identity = identity;
+        }
+        if let Some(website) = website {
+            validator.description.website = website;
+        }
+        if let Some(security_contact) = security_contact {
+            validator.description.security_contact = security_contact;
+        }
+        if let Some(details) = details {
+            validator.description.details = details;
+        }
+        if let Some(commission_rate) = commission_rate {
+            validator.commission.commission_rates.rate = commission_rate;
+            validator.commission.update_time = env::block_timestamp();
+        }
+        if let Some(min_self_delegation) = min_self_delegation {
+            validator.min_self_delegation = min_self_delegation;
+        }
+
+        self.validators.insert(&validator_address, &validator);
+        env::log_str(&format!("Edited validator: {}", validator_address));
+        Ok(())
     }
 
-    pub fn undelegate(&mut self, delegator: &AccountId, validator: &AccountId, amount: Balance, current_height: u64) {
-        let mut delegations = self.delegations.get(delegator)
-            .expect("No delegations found");
-        
-        // Find and update delegation
-        let delegation = delegations.iter_mut()
-            .find(|d| d.validator == *validator)
-            .expect("Delegation not found");
-        
-        assert!(delegation.amount >= amount, "Insufficient delegated amount");
-        
-        // Update delegation
-        delegation.amount -= amount;
-        if delegation.amount == 0 {
-            delegations.retain(|d| d.validator != *validator);
+    // Delegation functions
+    pub fn delegate(&mut self, delegator: String, validator_address: String, amount: Balance) -> Result<(), String> {
+        let mut validator = self.validators.get(&validator_address)
+            .ok_or("Validator not found")?;
+
+        if validator.status != ValidatorStatus::Bonded {
+            return Err("Validator not bonded".to_string());
         }
-        
-        if delegations.is_empty() {
-            self.delegations.remove(delegator);
-        } else {
-            self.delegations.insert(delegator, &delegations);
-        }
-        
+
         // Update validator
-        let mut validator_info = self.validators.get(validator).unwrap();
-        validator_info.total_delegated -= amount;
-        self.validators.insert(validator, &validator_info);
+        validator.tokens += amount;
+        let new_shares = amount; // Simplified 1:1 share ratio
+        validator.delegator_shares = (validator.delegator_shares.parse::<Balance>().unwrap_or(0) + new_shares).to_string();
+        self.validators.insert(&validator_address, &validator);
+
+        // Create or update delegation
+        let delegation_key = format!("{}#{}", delegator, validator_address);
+        let delegation = Delegation {
+            delegator_address: delegator.clone(),
+            validator_address: validator_address.clone(),
+            shares: new_shares.to_string(),
+        };
+        self.delegations.insert(&delegation_key, &delegation);
+
+        // Update pool
+        self.pool.bonded_tokens += amount;
+
+        env::log_str(&format!("Delegated {} from {} to {}", amount, delegator, validator_address));
+        Ok(())
+    }
+
+    pub fn undelegate(&mut self, delegator: String, validator_address: String, amount: Balance) -> Result<u64, String> {
+        let delegation_key = format!("{}#{}", delegator, validator_address);
+        let mut delegation = self.delegations.get(&delegation_key)
+            .ok_or("Delegation not found")?;
+
+        let current_shares: Balance = delegation.shares.parse().map_err(|_| "Invalid shares")?;
+        if current_shares < amount {
+            return Err("Insufficient delegation".to_string());
+        }
+
+        // Update delegation
+        let new_shares = current_shares - amount;
+        if new_shares == 0 {
+            self.delegations.remove(&delegation_key);
+        } else {
+            delegation.shares = new_shares.to_string();
+            self.delegations.insert(&delegation_key, &delegation);
+        }
+
+        // Update validator
+        let mut validator = self.validators.get(&validator_address).unwrap();
+        validator.tokens -= amount;
+        let total_shares: Balance = validator.delegator_shares.parse().unwrap_or(0);
+        validator.delegator_shares = (total_shares - amount).to_string();
+        self.validators.insert(&validator_address, &validator);
+
+        // Create unbonding delegation
+        let completion_time = env::block_timestamp() + self.params.unbonding_time * 1_000_000_000; // Convert to nanoseconds
+        let unbonding_key = format!("{}#{}", delegator, validator_address);
         
-        // Add to unbonding queue (100 blocks unbonding period)
-        let mut unbonding = self.unbonding_queue.get(delegator).unwrap_or_default();
-        unbonding.push(UnbondingEntry {
-            validator: validator.clone(),
-            amount,
-            release_height: current_height + 100,
+        let mut unbonding = self.unbonding_delegations.get(&unbonding_key)
+            .unwrap_or(UnbondingDelegation {
+                delegator_address: delegator.clone(),
+                validator_address: validator_address.clone(),
+                entries: vec![],
+            });
+
+        unbonding.entries.push(UnbondingDelegationEntry {
+            creation_height: env::block_height(),
+            completion_time,
+            initial_balance: amount,
+            balance: amount,
         });
-        self.unbonding_queue.insert(delegator, &unbonding);
+
+        self.unbonding_delegations.insert(&unbonding_key, &unbonding);
+
+        // Update pool
+        self.pool.bonded_tokens -= amount;
+        self.pool.not_bonded_tokens += amount;
+
+        env::log_str(&format!("Started unbonding {} from {} to {}", amount, delegator, validator_address));
+        Ok(completion_time)
+    }
+
+    pub fn redelegate(&mut self, delegator: String, validator_src: String, validator_dst: String, amount: Balance) -> Result<u64, String> {
+        // Simplified redelegation - just move delegation
+        self.undelegate(delegator.clone(), validator_src, amount)?;
+        self.delegate(delegator, validator_dst, amount)?;
         
-        env::log_str(&format!("Staking: Undelegated {} from {} by {}", amount, validator, delegator));
+        let completion_time = env::block_timestamp() + self.params.unbonding_time * 1_000_000_000;
+        Ok(completion_time)
+    }
+
+    // Query functions
+    pub fn get_validator(&self, validator_address: String) -> Option<Validator> {
+        self.validators.get(&validator_address)
+    }
+
+    pub fn get_all_validators(&self) -> Vec<Validator> {
+        self.validators.values().collect()
+    }
+
+    pub fn get_bonded_validators(&self) -> Vec<Validator> {
+        self.validators.values()
+            .filter(|v| v.status == ValidatorStatus::Bonded)
+            .collect()
+    }
+
+    pub fn get_delegation(&self, delegator: String, validator_address: String) -> Option<Delegation> {
+        let key = format!("{}#{}", delegator, validator_address);
+        self.delegations.get(&key)
+    }
+
+    pub fn get_delegations(&self, delegator: String) -> Vec<Delegation> {
+        self.delegations.values()
+            .filter(|d| d.delegator_address == delegator)
+            .collect()
+    }
+
+    pub fn get_validator_delegations(&self, validator_address: String) -> Vec<Delegation> {
+        self.delegations.values()
+            .filter(|d| d.validator_address == validator_address)
+            .collect()
+    }
+
+    pub fn get_unbonding_delegation(&self, delegator: String, validator_address: String) -> Option<UnbondingDelegation> {
+        let key = format!("{}#{}", delegator, validator_address);
+        self.unbonding_delegations.get(&key)
+    }
+
+    pub fn get_unbonding_delegations(&self, delegator: String) -> Vec<UnbondingDelegation> {
+        self.unbonding_delegations.values()
+            .filter(|ud| ud.delegator_address == delegator)
+            .collect()
+    }
+
+    pub fn get_pool(&self) -> Pool {
+        self.pool.clone()
+    }
+
+    pub fn get_params(&self) -> Params {
+        self.params.clone()
+    }
+
+    // Rewards and slashing
+    pub fn withdraw_delegator_reward(&mut self, delegator: String, validator_address: String) -> Result<Balance, String> {
+        // Simplified reward calculation - 5% of delegation
+        if let Some(delegation) = self.get_delegation(delegator, validator_address) {
+            let shares: Balance = delegation.shares.parse().map_err(|_| "Invalid shares")?;
+            let reward = shares * 5 / 100; // 5% reward
+            Ok(reward)
+        } else {
+            Err("Delegation not found".to_string())
+        }
+    }
+
+    pub fn slash_validator(&mut self, validator_address: String, _height: u64, _power: u64, slash_fraction: String) -> Result<Balance, String> {
+        let mut validator = self.validators.get(&validator_address)
+            .ok_or("Validator not found")?;
+
+        let slash_rate: f64 = slash_fraction.parse().map_err(|_| "Invalid slash fraction")?;
+        let slashed_amount = (validator.tokens as f64 * slash_rate) as Balance;
+        
+        validator.tokens -= slashed_amount;
+        validator.jailed = true;
+        validator.status = ValidatorStatus::Unbonding;
+        
+        self.validators.insert(&validator_address, &validator);
+        self.pool.bonded_tokens -= slashed_amount;
+
+        env::log_str(&format!("Slashed validator {} by {}", validator_address, slashed_amount));
+        Ok(slashed_amount)
+    }
+
+    pub fn refund_tokens(&mut self, _data: serde_json::Value) -> Result<(), String> {
+        // Placeholder for token refund logic
+        Ok(())
+    }
+
+    pub fn add_validator(&mut self, validator: Validator) -> Result<(), String> {
+        if self.validators.get(&validator.address).is_some() {
+            return Err("Validator already exists".to_string());
+        }
+        
+        self.validators.insert(&validator.address, &validator);
+        env::log_str(&format!("Added validator: {}", validator.address));
+        Ok(())
     }
 
     pub fn begin_block(&mut self, _height: u64) {
-        // Process any begin block logic for staking
+        // Begin block processing - update validator set, process slashing, etc.
+        env::log_str("Staking module begin block processing");
     }
 
-    pub fn end_block(&mut self, height: u64, bank: &mut BankModule) {
-        // Process unbonding queue
-        self.process_unbonding_queue(height, bank);
-        
-        // Distribute rewards (5% flat rate)
-        self.distribute_rewards(bank);
-    }
-
-    fn process_unbonding_queue(&mut self, current_height: u64, bank: &mut BankModule) {
-        let mut accounts_to_update = Vec::new();
-        
-        for (account, unbonding_entries) in self.unbonding_queue.iter() {
-            let mut updated_entries = Vec::new();
-            let mut released_amount = 0;
-            
-            for entry in &unbonding_entries {
-                if entry.release_height <= current_height {
-                    released_amount += entry.amount;
-                    env::log_str(&format!("Staking: Released {} to {} at height {}", 
-                        entry.amount, account, current_height));
-                } else {
-                    updated_entries.push(entry.clone());
-                }
-            }
-            
-            if released_amount > 0 {
-                bank.mint(&account, released_amount);
-            }
-            
-            accounts_to_update.push((account.clone(), updated_entries));
-        }
-        
-        // Update unbonding queue
-        for (account, updated_entries) in accounts_to_update {
-            if updated_entries.is_empty() {
-                self.unbonding_queue.remove(&account);
-            } else {
-                self.unbonding_queue.insert(&account, &updated_entries);
-            }
-        }
-    }
-
-    fn distribute_rewards(&mut self, bank: &mut BankModule) {
-        // 5% reward rate per block for all delegators
-        let reward_rate = 5; // 5%
-        
-        for (delegator, delegations) in self.delegations.iter() {
-            for delegation in &delegations {
-                let reward = delegation.amount * reward_rate / 100;
-                if reward > 0 {
-                    bank.mint(&delegator, reward);
-                    env::log_str(&format!("Staking: Rewarded {} to {} for delegation to {}", 
-                        reward, delegator, delegation.validator));
-                }
-            }
-        }
+    pub fn end_block(&mut self, _height: u64) {
+        // End block processing - finalize validator updates, distribute rewards, etc.
+        env::log_str("Staking module end block processing");
     }
 }

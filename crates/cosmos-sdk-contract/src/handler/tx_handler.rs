@@ -1,5 +1,5 @@
 use crate::types::cosmos_tx::{CosmosTx, TxValidationError, SignDoc};
-use crate::handler::{TxDecoder, TxDecodingError, route_cosmos_message, HandleResult, HandleResponse, ContractError};
+use crate::handler::{TxDecoder, TxDecodingError, HandleResult, ContractError};
 use crate::crypto::{CosmosSignatureVerifier, SignatureError, CosmosPublicKey};
 use crate::modules::auth::{AccountManager, AccountError, AccountConfig, FeeProcessor, FeeError, FeeConfig};
 use near_sdk::serde::{Deserialize, Serialize};
@@ -462,7 +462,7 @@ impl CosmosTransactionHandler {
         }
 
         // 5. Process fee payment (get payer address from first signer)
-        let payer = if let (Some(key), Some(address)) = (recovered_keys.get(0), self.account_manager.derive_addresses(&recovered_keys)?.get(0)) {
+        let payer = if let (Some(_key), Some(address)) = (recovered_keys.get(0), self.account_manager.derive_addresses(&recovered_keys)?.get(0)) {
             address.clone()
         } else {
             // Fallback to a placeholder for tests

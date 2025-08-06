@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time;
 
-use crate::chains::{Chain, IbcPacket};
+use crate::chains::{Chain, IbcPacket, ChainFactory};
 use crate::config::RelayerConfig;
 use crate::metrics::RelayerMetrics;
 use super::{RelayEvent, PacketTracker, PendingPacket, PacketKey};
@@ -35,7 +35,25 @@ pub struct RelayEngine {
 }
 
 impl RelayEngine {
-    /// Create a new enhanced relay engine
+    /// Create a new enhanced relay engine with auto-detected chain types
+    pub async fn new_with_auto_detection(
+        config: RelayerConfig,
+        metrics: Arc<RelayerMetrics>,
+    ) -> Result<(Self, mpsc::Sender<RelayEvent>, tokio::sync::watch::Sender<bool>), Box<dyn std::error::Error + Send + Sync>> {
+        let mut chains = HashMap::new();
+        
+        // Use ChainFactory to create appropriate chain implementations
+        for (chain_id, chain_config) in &config.chains {
+            println!("🔗 Auto-detecting and initializing chain: {}", chain_id);
+            
+            let chain = ChainFactory::auto_detect_and_create(chain_config).await?;
+            chains.insert(chain_id.clone(), Arc::from(chain));
+        }
+        
+        Ok(Self::new(config, chains, metrics))
+    }
+    
+    /// Create a new enhanced relay engine with pre-configured chains
     pub fn new(
         config: RelayerConfig,
         chains: HashMap<String, Arc<dyn Chain>>,

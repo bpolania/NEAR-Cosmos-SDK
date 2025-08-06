@@ -74,7 +74,7 @@ impl CosmWasmQuerier {
 
 impl Querier for CosmWasmQuerier {
     /// Query balance of an address
-    fn query_balance(&self, address: String, denom: String) -> StdResult<Coin> {
+    fn query_balance(&self, _address: String, denom: String) -> StdResult<Coin> {
         // This needs to integrate with Proxima's Bank module
         // For now, return a placeholder implementation
         
@@ -107,28 +107,28 @@ impl Querier for CosmWasmQuerier {
 /// Extended querier with additional Proxima-specific queries
 impl CosmWasmQuerier {
     /// Query all balances for an address
-    pub fn query_all_balances(&self, address: String) -> StdResult<Vec<Coin>> {
+    pub fn query_all_balances(&self, _address: String) -> StdResult<Vec<Coin>> {
         // In production, this would query all token balances from Bank module
         // For now, return empty vec
         Ok(vec![])
     }
     
     /// Query staking information
-    pub fn query_staking_info(&self, delegator: String, validator: String) -> StdResult<StakingInfo> {
+    pub fn query_staking_info(&self, _delegator: String, _validator: String) -> StdResult<StakingInfo> {
         // In production, this would query Staking module
         // For now, return default
         Ok(StakingInfo::default())
     }
     
     /// Query governance proposal
-    pub fn query_proposal(&self, proposal_id: u64) -> StdResult<ProposalInfo> {
+    pub fn query_proposal(&self, _proposal_id: u64) -> StdResult<ProposalInfo> {
         // In production, this would query Governance module
         // For now, return not found
         Err(StdError::not_found("proposal"))
     }
     
     /// Query IBC channel
-    pub fn query_ibc_channel(&self, port_id: String, channel_id: String) -> StdResult<IbcChannelInfo> {
+    pub fn query_ibc_channel(&self, _port_id: String, _channel_id: String) -> StdResult<IbcChannelInfo> {
         // In production, this would query IBC module
         // For now, return not found
         Err(StdError::not_found("channel"))

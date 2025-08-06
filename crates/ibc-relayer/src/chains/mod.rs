@@ -5,13 +5,19 @@ use async_trait::async_trait;
 use futures::Stream;
 
 pub mod near_simple;
+pub mod near_modular;
 pub mod cosmos_minimal;
+pub mod factory;
 
 // Re-export for easier access (will be used by relay engine)
 #[allow(unused_imports)]
 pub use near_simple::NearChain;
 #[allow(unused_imports)]
+pub use near_modular::{NearModularChain, ModuleRegistry, ModuleInfo, IbcModuleType, CrossModuleOp, ChannelStateInfo};
+#[allow(unused_imports)]
 pub use cosmos_minimal::CosmosChain;
+#[allow(unused_imports)]
+pub use factory::ChainFactory;
 
 /// Generic chain interface for IBC operations
 #[async_trait]
@@ -88,7 +94,7 @@ pub struct ChainEvent {
 }
 
 /// IBC packet structure
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IbcPacket {
     pub sequence: u64,
     pub source_port: String,

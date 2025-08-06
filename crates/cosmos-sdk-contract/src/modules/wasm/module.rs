@@ -63,7 +63,7 @@ impl WasmModule {
         // Store code metadata
         let code_info = CodeInfo {
             code_id,
-            creator: sender.clone(),
+            creator: sender.to_string(),
             code_hash: env::sha256(&wasm_byte_code),
             source: source.unwrap_or_default(),
             builder: builder.unwrap_or_default(),
@@ -81,8 +81,8 @@ impl WasmModule {
         &mut self,
         sender: &AccountId,
         code_id: CodeID,
-        init_msg: Vec<u8>,
-        funds: Vec<Coin>,
+        _init_msg: Vec<u8>,
+        _funds: Vec<Coin>,
         label: String,
         admin: Option<AccountId>,
     ) -> Result<InstantiateResponse, String> {
@@ -104,8 +104,8 @@ impl WasmModule {
         let contract_info = ContractInfo {
             address: contract_address.clone(),
             code_id,
-            creator: sender.clone(),
-            admin: admin.clone(),
+            creator: sender.to_string(),
+            admin: admin.as_ref().map(|a| a.to_string()),
             label,
             created: env::block_height(),
             ibc_port_id: None,
@@ -135,16 +135,17 @@ impl WasmModule {
         Ok(InstantiateResponse {
             address: contract_address.to_string(),
             data: None,
+            events: vec!["instantiate".to_string()],
         })
     }
 
     /// Execute a message on a contract
     pub fn execute_contract(
         &mut self,
-        sender: &AccountId,
+        _sender: &AccountId,
         contract_addr: &ContractAddress,
-        msg: Vec<u8>,
-        funds: Vec<Coin>,
+        _msg: Vec<u8>,
+        _funds: Vec<Coin>,
     ) -> Result<ExecuteResponse, String> {
         // Check if contract exists
         let _contract_info = self.contracts.get(contract_addr)
@@ -157,6 +158,7 @@ impl WasmModule {
 
         Ok(ExecuteResponse {
             data: None,
+            events: vec!["execute".to_string()],
         })
     }
 
@@ -164,7 +166,7 @@ impl WasmModule {
     pub fn query_contract(
         &self,
         contract_addr: &ContractAddress,
-        msg: Vec<u8>,
+        _msg: Vec<u8>,
     ) -> Result<Vec<u8>, String> {
         // Check if contract exists
         let _contract_info = self.contracts.get(contract_addr)
@@ -250,14 +252,10 @@ impl WasmModule {
             None | Some(AccessConfig::Everybody {}) => AccessType::Everybody,
             Some(AccessConfig::Nobody {}) => AccessType::Nobody,
             Some(AccessConfig::OnlyAddress { address }) => {
-                AccessType::OnlyAddress(address.parse().unwrap_or_else(|_| env::current_account_id()))
+                AccessType::OnlyAddress(address)
             }
             Some(AccessConfig::AnyOfAddresses { addresses }) => {
-                let parsed_addresses: Vec<AccountId> = addresses
-                    .into_iter()
-                    .filter_map(|addr| addr.parse().ok())
-                    .collect();
-                AccessType::AnyOfAddresses(parsed_addresses)
+                AccessType::AnyOfAddresses(addresses)
             }
         }
     }
@@ -266,8 +264,8 @@ impl WasmModule {
         match permission {
             AccessType::Nobody => false,
             AccessType::Everybody => true,
-            AccessType::OnlyAddress(addr) => addr == sender,
-            AccessType::AnyOfAddresses(addrs) => addrs.contains(sender),
+            AccessType::OnlyAddress(addr) => addr == &sender.to_string(),
+            AccessType::AnyOfAddresses(addrs) => addrs.contains(&sender.to_string()),
         }
     }
 
@@ -279,5 +277,10 @@ impl WasmModule {
 
     pub fn get_next_code_id(&self) -> CodeID {
         self.next_code_id
+    }
+
+    /// Get all contract instances
+    pub fn get_all_contracts(&self) -> Vec<ContractInfo> {
+        self.contracts.values().collect()
     }
 }

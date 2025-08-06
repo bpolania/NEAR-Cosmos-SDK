@@ -125,7 +125,7 @@ fn process_wasm_message(msg: WasmMsg, msg_id: u64) -> Result<(), String> {
             admin,
             code_id,
             msg,
-            funds,
+            funds: _,
             label,
         } => {
             env::log_str(&format!(

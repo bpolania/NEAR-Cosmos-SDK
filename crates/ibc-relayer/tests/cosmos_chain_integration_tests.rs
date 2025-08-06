@@ -272,6 +272,8 @@ async fn test_cosmos_chain_configuration_validation() {
             signer_account_id: "signer.near".to_string(),
             private_key: None,
             network_id: "testnet".to_string(),
+            modular: false,
+            modules: None,
         },
     };
     

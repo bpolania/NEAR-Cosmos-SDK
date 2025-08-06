@@ -17,12 +17,20 @@ async fn deploy_cosmos_contract(worker: &Worker<near_workspaces::network::Sandbo
     let contract = worker.dev_deploy(&wasm).await?;
 
     // Initialize the main contract
-    contract
+    let init_result = contract
         .call("new")
         .max_gas()
         .transact()
-        .await?
-        .into_result()?;
+        .await?;
+    
+    if !init_result.is_success() {
+        println!("❌ Contract initialization failed:");
+        println!("Status: {:?}", init_result.is_success());
+        println!("Logs: {:#?}", init_result.logs());
+        println!("Details: {:#?}", init_result);
+        return Err(anyhow::anyhow!("Contract initialization failed"));
+    }
+    println!("✅ Contract initialized successfully");
 
     Ok(contract)
 }
@@ -64,7 +72,13 @@ async fn test_wasm_module_basic_functionality() -> Result<()> {
         .transact()
         .await?;
     
-    assert!(store_result.is_success());
+    if !store_result.is_success() {
+        println!("❌ Store code failed:");
+        println!("Status: {:?}", store_result.is_success());
+        println!("Logs: {:#?}", store_result.logs());
+        println!("Details: {:#?}", store_result);
+        panic!("Store code operation failed");
+    }
     let code_id: u64 = store_result.json()?;
     assert_eq!(code_id, 1); // First code should have ID 1
     println!("✅ Stored WASM code with CodeID: {}", code_id);

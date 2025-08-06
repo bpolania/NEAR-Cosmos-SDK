@@ -10,6 +10,10 @@ use base64::Engine;
 use crate::chains::{Chain, ChainEvent};
 use crate::relay::RelayEvent;
 
+// Modular event monitor for multi-contract architectures
+pub mod modular;
+pub use modular::ModularEventMonitor;
+
 /// Event monitor for tracking blockchain events across multiple chains
 pub struct EventMonitor {
     /// Chain implementations being monitored

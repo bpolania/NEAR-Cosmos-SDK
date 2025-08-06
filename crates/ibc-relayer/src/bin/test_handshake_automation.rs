@@ -15,9 +15,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ws_endpoint: None,
         config: ChainSpecificConfig::Near {
             contract_id: "cosmos-sdk-demo.testnet".to_string(),
+            modules: None,
             signer_account_id: "cuteharbor3573.testnet".to_string(),
             network_id: "testnet".to_string(),
             private_key: None,
+            modular: false,
         },
     };
 
