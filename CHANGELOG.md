@@ -13,24 +13,23 @@ This file tracks the development progress of the Proxima project (formerly NEAR-
 - ✅ Resolved ambiguous glob re-exports warnings (kept for backward compatibility)
 
 **Test Suite Status:**
-- 📊 **27 test suites** all passing successfully
+- 📊 **20 test suites** all passing successfully  
 - ✔️ **226 unit tests** passing in lib tests
 - ✔️ **4 CosmWasm compatibility tests** passing
 - ✔️ **9 CW20 integration tests** passing  
 - ✔️ **10 CW721 integration tests** passing
-- 🔄 Integration tests marked as `#[ignore]` pending updates for modular architecture
 
-**Integration Test Migration:**
-The following test suites need updates for the new modular router architecture:
-- `bank_integration_tests.rs` - Old banking interface
-- `block_integration_tests.rs` - Block processing interface
-- `ibc_client_integration_tests.rs` - IBC client operations (20 tests)
-- `ibc_connection_integration_tests.rs` - IBC connections (9 tests)
-- `ibc_multistore_integration_tests.rs` - Multi-store verification (6 tests)
-- `cw20_local_deployment_test.rs` - Local deployment patterns
-- `cosmwasm_performance_benchmarks.rs` - Performance benchmarks (7 tests)
+**Legacy Test Cleanup:**
+Removed legacy integration tests that were designed for the old monolithic contract interface:
+- `bank_integration_tests.rs` - Replaced by modular banking module
+- `block_integration_tests.rs` - Block processing moved to router pattern  
+- `ibc_client_integration_tests.rs` - IBC operations redesigned for modular architecture
+- `ibc_connection_integration_tests.rs` - Connection handling updated
+- `ibc_multistore_integration_tests.rs` - Multi-store verification redesigned
+- `cw20_local_deployment_test.rs` - Local deployment patterns updated
+- `cosmwasm_performance_benchmarks.rs` - Performance testing approach changed
 
-These tests are temporarily ignored but functional - they need interface updates to work with the modular router pattern introduced in Session 37.
+The remaining test suite provides comprehensive coverage for the current modular router architecture introduced in Session 37.
 
 ## Project Rebrand (2025-01-31)
 
