@@ -279,9 +279,9 @@ mod tests {
     fn test_memory_usage() {
         let mut manager = CosmWasmMemoryManager::new();
         
-        let ptr1 = manager.allocate(100);
+        let _ptr1 = manager.allocate(100);
         let ptr2 = manager.allocate(200);
-        let ptr3 = manager.allocate(300);
+        let _ptr3 = manager.allocate(300);
         
         assert_eq!(manager.total_memory_usage(), 600);
         assert_eq!(manager.active_regions(), 3);

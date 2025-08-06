@@ -197,7 +197,7 @@ mod tests {
         
         // Test mutable deps
         let mut deps_mut = CosmWasmDepsMut::new(&mut storage, &api);
-        let mut std_deps_mut = deps_mut.as_deps_mut();
+        let std_deps_mut = deps_mut.as_deps_mut();
         
         // Verify we can modify storage through deps_mut
         std_deps_mut.storage.set(b"test", b"value");

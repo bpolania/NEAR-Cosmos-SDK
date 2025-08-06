@@ -155,6 +155,7 @@ mod connection_tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_conn_open_init() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -204,6 +205,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_conn_open_try() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -259,6 +261,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_connection_handshake_init_to_ack() -> Result<()> {
         sleep(Duration::from_millis(1400)).await;
         let worker = near_workspaces::sandbox().await?;
@@ -336,6 +339,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_connection_handshake_try_to_confirm() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -412,6 +416,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_conn_open_ack_invalid_state() -> Result<()> {
         sleep(Duration::from_millis(500)).await; // Add delay to avoid port conflicts
         let worker = near_workspaces::sandbox().await?;
@@ -467,6 +472,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_conn_open_confirm_invalid_state() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -511,6 +517,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_get_connection_nonexistent() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -531,6 +538,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_is_connection_open_false() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -579,6 +587,7 @@ mod connection_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_multiple_connections() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;

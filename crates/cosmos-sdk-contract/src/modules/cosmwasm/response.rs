@@ -239,7 +239,7 @@ impl ReplyHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modules::cosmwasm::types::{Event, Attribute, Coin, Uint128, Empty};
+    use crate::modules::cosmwasm::types::{Event, Coin, Uint128, Empty};
     use near_sdk::test_utils::VMContextBuilder;
     use near_sdk::testing_env;
     

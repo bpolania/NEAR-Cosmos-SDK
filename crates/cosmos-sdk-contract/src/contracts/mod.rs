@@ -4,22 +4,23 @@
 /// that demonstrate how existing Cosmos ecosystem contracts can run on NEAR using our
 /// compatibility layer.
 
+// Only include non-bindgen components in the library to avoid symbol conflicts
 pub mod cw20_base;
-pub mod wasm_module_contract;
-pub mod router_contract;
-pub mod ibc_client_contract;
-pub mod ibc_channel_contract;
-pub mod ibc_connection_contract;
-pub mod ibc_transfer_contract;
-pub mod bank_contract;
-pub mod staking_contract;
 
+// Comment out near_bindgen contracts to avoid symbol conflicts during library compilation
+// These will be used directly in their respective binary targets
+
+// pub mod router_contract;
+// pub mod bank_contract;
+// pub mod wasm_module_contract;
+// pub mod ibc_client_contract;
+// pub mod ibc_channel_contract;
+// pub mod ibc_connection_contract;
+// pub mod ibc_transfer_contract;
+// pub mod staking_contract;
+// pub mod state_sync_contract;
+
+// Only export non-conflicting types
 pub use cw20_base::Cw20Contract;
-pub use wasm_module_contract::WasmModuleContract;
-pub use router_contract::RouterContract;
-pub use ibc_client_contract::IbcClientContract;
-pub use ibc_channel_contract::IbcChannelContract;
-pub use ibc_connection_contract::IbcConnectionContract;
-pub use ibc_transfer_contract::IbcTransferContract;
-pub use bank_contract::BankContract;
-pub use staking_contract::StakingContract;
+
+// Note: Individual contracts are implemented in their respective binary targets

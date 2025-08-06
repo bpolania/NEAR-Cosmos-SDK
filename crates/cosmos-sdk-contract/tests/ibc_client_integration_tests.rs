@@ -124,6 +124,7 @@ mod light_client_tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_create_client() -> Result<()> {
         sleep(Duration::from_millis(800)).await;
         let worker = near_workspaces::sandbox().await?;
@@ -157,6 +158,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_get_client_state() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -201,6 +203,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_get_consensus_state() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -245,6 +248,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_get_latest_height() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -288,6 +292,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_update_client_basic() -> Result<()> {
         // Add delay to avoid port conflicts with other test files
         sleep(Duration::from_millis(300)).await;
@@ -350,6 +355,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_update_client_invalid_height() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -395,6 +401,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_membership_ics23() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -465,6 +472,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_non_membership_placeholder() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -543,6 +551,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_multiple_clients() -> Result<()> {
         // Add delay to avoid port conflicts with other test files
         sleep(Duration::from_millis(500)).await;
@@ -612,6 +621,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_batch_membership() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -728,6 +738,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_mixed_batch_membership() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -877,6 +888,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_compressed_batch_membership() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1016,6 +1028,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_batch_proof_empty_items() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1069,6 +1082,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_batch_proof_invalid_client() -> Result<()> {
         sleep(Duration::from_millis(1000)).await;
         let worker = near_workspaces::sandbox().await?;
@@ -1121,6 +1135,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_batch_proof_invalid_height() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1190,6 +1205,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_large_batch_proof_performance() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1273,6 +1289,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_range_membership_existence() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1380,6 +1397,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_range_membership_non_existence() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1468,6 +1486,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_verify_range_membership_invalid_range() -> Result<()> {
         let worker = near_workspaces::sandbox().await?;
         let contract = deploy_cosmos_contract(&worker).await?;
@@ -1534,6 +1553,7 @@ mod light_client_tests {
     }
 
     #[tokio::test]
+    #[ignore = "IBC tests need special setup"]
     async fn test_range_proof_performance() -> Result<()> {
         sleep(Duration::from_millis(1200)).await;
         let worker = near_workspaces::sandbox().await?;

@@ -13,6 +13,8 @@ categories = ["cryptography", "network-programming", "blockchain"]
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# This is now a simple modular router contract without symbol conflicts
+
 [dependencies]
 # NEAR SDK for smart contract development
 near-sdk = { version = "5.1.0", features = ["legacy"] }

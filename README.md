@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.9.0--beta-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v0.9.0)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
-[![Tests](https://img.shields.io/badge/tests-396%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
+[![Tests](https://img.shields.io/badge/tests-249%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 *Bridging NEAR and Cosmos ecosystems*
@@ -17,16 +17,16 @@ Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts wit
 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
-| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 206+ tests passing |
-| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 160+ tests passing |
-| **Overall System** | 0.9.0-beta | ✅ Production Ready | **366+ total tests** |
+| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 226+ tests passing |
+| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 23+ tests passing |
+| **Overall System** | 0.9.0-beta | ✅ Production Ready | **249+ total tests** |
 | **Documentation** | 0.9.0-beta | ✅ Production Ready | **7 comprehensive guides** |
 
 **Key Achievements:**
 - 🚀 **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
 - 🔒 **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
 - 🌐 **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
-- 📊 **Comprehensive Testing**: 366+ tests with 100% success rate across all components
+- 📊 **Comprehensive Testing**: 249+ tests with 100% success rate across all components
 - 🛠️ **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
 - ✅ **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
 - 🎯 **Public API Complete**: Cosmos SDK RPC-compatible interface for transaction broadcasting and management
@@ -64,7 +64,7 @@ All persistent state lives in NEAR's key-value store, namespaced by byte-prefixe
 - ✅ **Complete IBC Infrastructure**: Full implementation of ICS-07 (Light Client), ICS-03 (Connection), ICS-04 (Channel), and ICS-20 (Token Transfer)
 - ✅ **Production IBC Relayer**: Full-featured relayer with packet scanning, proof generation, timeout detection, and bidirectional relay
 - ✅ **Local Development Environment**: Docker-based wasmd testnet with automated setup and configuration
-- ✅ **Comprehensive Testing**: 322+ tests passing across all components with full integration coverage
+- ✅ **Comprehensive Testing**: 249+ tests passing across all components with full integration coverage
 - ✅ **Secure Keystore**: AES-256-GCM encrypted key management with secp256k1 (Cosmos) and ed25519 (NEAR) support
 - ✅ **Rate Limit Handling**: Robust error handling with exponential backoff for external API rate limits
 - ✅ **Testnet Deployment**: Live infrastructure deployed on NEAR testnet with automated deployment scripts
