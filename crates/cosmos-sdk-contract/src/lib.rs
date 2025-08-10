@@ -3,6 +3,7 @@ use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, Promise, ext_contract};
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
 pub type Balance = u128;
 
@@ -49,7 +50,7 @@ trait ExtWasmModule {
 }
 
 // Types for cross-contract communication
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AccessConfig {
     Nobody {},
@@ -58,7 +59,7 @@ pub enum AccessConfig {
     AnyOfAddresses { addresses: Vec<String> },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Coin {
     pub denom: String,
     pub amount: String,
