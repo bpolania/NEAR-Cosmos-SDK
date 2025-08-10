@@ -42,13 +42,21 @@ pub enum ChainSpecificConfig {
     #[serde(rename = "near")]
     Near {
         /// NEAR contract account ID (our Cosmos SDK contract)
+        /// For modular architecture, this is the router contract
+        #[serde(alias = "router_contract")]
         contract_id: String,
+        /// Optional: Individual module contracts for direct access
+        /// If not provided, will auto-discover from router
+        modules: Option<HashMap<String, String>>,
         /// Account ID for signing transactions
         signer_account_id: String,
         /// Private key for signing (in development)
         private_key: Option<String>,
         /// Network ID (mainnet, testnet, localnet)
         network_id: String,
+        /// Enable modular architecture support
+        #[serde(default = "default_modular")]
+        modular: bool,
     },
     #[serde(rename = "cosmos")]
     Cosmos {
@@ -91,6 +99,10 @@ pub struct MetricsConfig {
     pub port: u16,
 }
 
+fn default_modular() -> bool {
+    false // Default to monolithic for backward compatibility
+}
+
 impl RelayerConfig {
     /// Load configuration from TOML file
     pub fn load<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
@@ -113,9 +125,11 @@ impl Default for RelayerConfig {
             ws_endpoint: None,
             config: ChainSpecificConfig::Near {
                 contract_id: "cosmos-sdk-demo.testnet".to_string(),
+                modules: None, // Auto-discover modules from router
                 signer_account_id: "relayer.testnet".to_string(),
                 private_key: None,
                 network_id: "testnet".to_string(),
+                modular: false, // Default to monolithic for backward compatibility
             },
         });
 

@@ -24,12 +24,12 @@ pub struct NearChain {
 
 impl NearChain {
     /// Create a new NEAR chain instance with real RPC client
-    pub fn new(config: &ChainConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(config: &ChainConfig) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         match &config.config {
             ChainSpecificConfig::Near { contract_id, network_id, .. } => {
                 let rpc_client = JsonRpcClient::connect(&config.rpc_endpoint);
                 let contract_account_id = contract_id.parse::<AccountId>()
-                    .map_err(|e| format!("Invalid contract account ID: {}", e))?;
+                    .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid contract account ID: {}", e))) as Box<dyn std::error::Error + Send + Sync>)?;
                 
                 Ok(Self {
                     chain_id: config.chain_id.clone(),
@@ -38,7 +38,7 @@ impl NearChain {
                     network_id: network_id.clone(),
                 })
             }
-            _ => Err("Invalid config type for NEAR chain".into()),
+            _ => Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid config type for NEAR chain")) as Box<dyn std::error::Error + Send + Sync>),
         }
     }
     
@@ -560,9 +560,11 @@ mod tests {
             ws_endpoint: None,
             config: ChainSpecificConfig::Near {
                 contract_id: "cosmos-sdk-demo.testnet".to_string(),
+                modules: None,
                 signer_account_id: "relayer.testnet".to_string(),
                 private_key: None,
                 network_id: "testnet".to_string(),
+                modular: false,
             },
         };
 
@@ -585,9 +587,11 @@ mod tests {
             ws_endpoint: None,
             config: ChainSpecificConfig::Near {
                 contract_id: "cosmos-sdk-demo.testnet".to_string(),
+                modules: None,
                 signer_account_id: "relayer.testnet".to_string(),
                 private_key: None,
                 network_id: "testnet".to_string(),
+                modular: false,
             },
         };
 

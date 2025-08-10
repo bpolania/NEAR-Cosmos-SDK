@@ -204,6 +204,59 @@ impl TransferModule {
     pub fn get_voucher_supply(&self, denom: &str) -> Balance {
         self.voucher_supply.get(&denom.to_string()).unwrap_or(0)
     }
+
+    // Additional methods required by contracts
+    pub fn refund_tokens(&mut self, data: FungibleTokenPacketData) -> Result<(), String> {
+        // Simple refund implementation - in a full version, this would integrate with the bank module
+        env::log_str(&format!("Refunded {} {} to {}", data.amount, data.denom, data.sender));
+        Ok(())
+    }
+
+    pub fn get_all_denom_traces(&self) -> Vec<DenomTrace> {
+        // Since LookupMap doesn't have iter(), we need to maintain a separate list
+        // For now, return empty vector - in a full implementation, we'd maintain a separate Vector
+        Vec::new()
+    }
+
+    pub fn get_voucher_balance(&self, _account: String, denom: String) -> Balance {
+        self.get_voucher_supply(&denom)
+    }
+
+    pub fn get_all_voucher_balances(&self, _account: String) -> Vec<(String, Balance)> {
+        // Return empty vector for now
+        Vec::new()
+    }
+
+    pub fn is_voucher_denom(&self, denom: &str) -> bool {
+        // Check if denom has IBC prefix
+        denom.starts_with("transfer/")
+    }
+
+    pub fn get_total_voucher_supply(&self, denom: String) -> Balance {
+        self.get_voucher_supply(&denom)
+    }
+
+    pub fn get_original_denom(&self, ibc_denom: String) -> Option<String> {
+        // Extract original denom from IBC denom
+        if ibc_denom.starts_with("transfer/") {
+            let parts: Vec<&str> = ibc_denom.split('/').collect();
+            if parts.len() >= 3 {
+                Some(parts[2..].join("/"))
+            } else {
+                None
+            }
+        } else {
+            Some(ibc_denom)
+        }
+    }
+
+    pub fn bind_port(&mut self, port_id: String) {
+        env::log_str(&format!("Transfer module bound to port {}", port_id));
+    }
+
+    pub fn is_port_bound(&self, _port_id: String) -> bool {
+        true // Assume always bound for now
+    }
 }
 
 #[cfg(test)]

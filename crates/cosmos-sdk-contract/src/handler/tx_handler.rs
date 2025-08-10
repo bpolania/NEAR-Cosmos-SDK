@@ -1,5 +1,5 @@
 use crate::types::cosmos_tx::{CosmosTx, TxValidationError, SignDoc};
-use crate::handler::{TxDecoder, TxDecodingError, route_cosmos_message, HandleResult, HandleResponse, ContractError};
+use crate::handler::{TxDecoder, TxDecodingError, HandleResult, ContractError};
 use crate::crypto::{CosmosSignatureVerifier, SignatureError, CosmosPublicKey};
 use crate::modules::auth::{AccountManager, AccountError, AccountConfig, FeeProcessor, FeeError, FeeConfig};
 use near_sdk::serde::{Deserialize, Serialize};
@@ -462,7 +462,7 @@ impl CosmosTransactionHandler {
         }
 
         // 5. Process fee payment (get payer address from first signer)
-        let payer = if let (Some(key), Some(address)) = (recovered_keys.get(0), self.account_manager.derive_addresses(&recovered_keys)?.get(0)) {
+        let payer = if let (Some(_key), Some(address)) = (recovered_keys.get(0), self.account_manager.derive_addresses(&recovered_keys)?.get(0)) {
             address.clone()
         } else {
             // Fallback to a placeholder for tests
@@ -1018,7 +1018,7 @@ mod tests {
     #[test]
     fn test_transaction_handler_creation() {
         let config = TxProcessingConfig::default();
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         
         assert_eq!(handler.config.chain_id, "near-cosmos-sdk");
         assert_eq!(handler.config.max_gas_per_tx, 10_000_000);
@@ -1027,7 +1027,7 @@ mod tests {
     #[test]
     fn test_transaction_validation() {
         let config = TxProcessingConfig::default();
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         let tx = create_test_transaction();
         
         let result = handler.validate_transaction(&tx);
@@ -1039,7 +1039,7 @@ mod tests {
         let mut config = TxProcessingConfig::default();
         config.max_gas_per_tx = 100_000; // Lower than test transaction
         
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         let tx = create_test_transaction();
         
         let result = handler.validate_transaction(&tx);
@@ -1088,7 +1088,7 @@ mod tests {
         }];
         
         let config = TxProcessingConfig::default();
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         let tx_response = handler.create_transaction_response(&tx, responses);
         
         assert_eq!(tx_response.txhash, txhash);
@@ -1113,7 +1113,7 @@ mod tests {
     #[test]
     fn test_sign_doc_creation() {
         let config = TxProcessingConfig::default();
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         let tx = create_test_transaction();
         
         let sign_doc = handler.get_sign_doc(&tx, 42).unwrap();
@@ -1136,7 +1136,7 @@ mod tests {
     #[test]
     fn test_sequence_validation() {
         let config = TxProcessingConfig::default();
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         
         // Create transaction with very high sequence
         let msg = Any::new("/cosmos.bank.v1beta1.MsgSend", vec![1, 2, 3]);
@@ -1161,7 +1161,7 @@ mod tests {
     #[test]
     fn test_fee_processor_integration() {
         let config = TxProcessingConfig::default();
-        let mut handler = CosmosTransactionHandler::new(config);
+        let handler = CosmosTransactionHandler::new(config);
         
         // Test minimum fee calculation
         let min_fee = handler.calculate_minimum_fee(100_000_000); // 0.1 TGas

@@ -23,6 +23,17 @@ fn create_near_config() -> ChainConfig {
             signer_account_id: "relayer.testnet".to_string(),
             private_key: None,
             network_id: "testnet".to_string(),
+            modular: true,
+            modules: Some({
+                let mut modules = HashMap::new();
+                modules.insert("ibc_client".to_string(), "ibc-client.testnet".to_string());
+                modules.insert("ibc_connection".to_string(), "ibc-connection.testnet".to_string());
+                modules.insert("ibc_channel".to_string(), "ibc-channel.testnet".to_string());
+                modules.insert("ibc_transfer".to_string(), "ibc-transfer.testnet".to_string());
+                modules.insert("bank".to_string(), "bank.testnet".to_string());
+                modules.insert("router".to_string(), "router.testnet".to_string());
+                modules
+            }),
         },
     }
 }

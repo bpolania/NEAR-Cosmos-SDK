@@ -13,6 +13,17 @@ categories = ["cryptography", "network-programming", "blockchain"]
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# This is now a simple modular router contract without symbol conflicts
+
+[package.metadata.contract]
+# Specify this is a NEAR smart contract
+# This helps cargo-near identify the package in a workspace
+
+[package.metadata.near.reproducible_build]
+# Docker image to use for reproducible builds
+docker_image = "ghcr.io/near/contract-builder"
+docker_image_digest = "sha256:5e8a3e9f8de27e48cd0028e4a3d87f920f173e45848884e5e0c726cf4f8c47a0"
+
 [dependencies]
 # NEAR SDK for smart contract development
 near-sdk = { version = "5.1.0", features = ["legacy"] }
@@ -40,21 +51,24 @@ prost-types = "0.12"
 base64 = "0.21"
 
 # Enable WASM support for randomness (required by k256)
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.2", features = ["custom"] }
 
 # NEAR-specific dependencies
 schemars = "0.8"
 
+
 [dev-dependencies]
 # Use specific versions for testing since contract is excluded from workspace
 near-workspaces = { version = "0.11", features = ["experimental"] }
+fastrand = "2.0"
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 reqwest = { version = "0.12", features = ["json"] }
 base64 = "0.21"
+wasmparser = "0.121"
 
 # NEAR SDK testing features
-near-sdk = { version = "5.1.0", features = ["unit-testing"] }
+near-sdk = { version = "5.5.0", features = ["unit-testing"] }
 
 [profile.release]
 codegen-units = 1
