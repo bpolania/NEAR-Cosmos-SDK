@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde_json::{json, Value};
 use base64::{Engine as _, engine::general_purpose};
 
-const TESTNET_CONTRACT_ID: &str = "cosmos-sdk-demo.testnet";
+const TESTNET_CONTRACT_ID: &str = "cosmos-sdk-demo-1754812961.testnet";
 const NEAR_TESTNET_RPC: &str = "https://rpc.testnet.near.org";
 
 /// Helper to make RPC view calls
@@ -62,289 +62,75 @@ fn parse_rpc_result_as_string(response: &Value) -> Result<String> {
     anyhow::bail!("Could not parse RPC result")
 }
 
-#[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
 async fn test_basic_contract_functions() -> Result<()> {
-    println!("🧪 Testing basic contract functions...");
+    println!("🧪 Testing basic router contract functions on testnet...");
 
-    // Test get_block_height
-    let response = rpc_view_call("get_block_height", json!({})).await?;
-    let block_height_str = parse_rpc_result_as_string(&response)?;
-    let block_height: u64 = block_height_str.parse()?;
-    println!("✅ Block height: {}", block_height);
+    // Test health_check
+    let response = rpc_view_call("health_check", json!({})).await?;
+    let health_str = parse_rpc_result_as_string(&response)?;
+    let health: Value = serde_json::from_str(&health_str)?;
+    assert_eq!(health["router"], true);
+    println!("✅ Health check passed: {}", health);
 
-    // Test get_balance
-    let response = rpc_view_call("get_balance", json!({
-        "account": TESTNET_CONTRACT_ID
-    })).await?;
-    let balance_str = parse_rpc_result_as_string(&response)?;
-    let balance: u128 = balance_str.parse()?;
-    println!("✅ Contract balance: {}", balance);
+    // Test get_metadata
+    let response = rpc_view_call("get_metadata", json!({})).await?;
+    let metadata_str = parse_rpc_result_as_string(&response)?;
+    let metadata: Value = serde_json::from_str(&metadata_str)?;
+    assert_eq!(metadata["type"], "modular_router");
+    println!("✅ Metadata: {}", metadata["name"]);
+
+    // Test test_function
+    let response = rpc_view_call("test_function", json!({})).await?;
+    let test_str = parse_rpc_result_as_string(&response)?;
+    assert!(test_str.contains("Modular Router is working!"));
+    println!("✅ Test function: {}", test_str);
+
+    Ok(())
+}
+
+async fn test_router_module_functions() -> Result<()> {
+    println!("🧪 Testing router module functions...");
+
+    // Test get_modules (should be empty initially)
+    let response = rpc_view_call("get_modules", json!({})).await?;
+    let modules_str = parse_rpc_result_as_string(&response)?;
+    let modules: Value = serde_json::from_str(&modules_str)?;
+    println!("✅ Registered modules: {}", modules);
+
+    // Test get_owner
+    let response = rpc_view_call("get_owner", json!({})).await?;
+    let owner_str = parse_rpc_result_as_string(&response)?;
+    assert_eq!(owner_str.trim_matches('"'), TESTNET_CONTRACT_ID);
+    println!("✅ Contract owner: {}", owner_str);
+
+    // Test get_stats
+    let response = rpc_view_call("get_stats", json!({})).await?;
+    let stats_str = parse_rpc_result_as_string(&response)?;
+    let stats: Value = serde_json::from_str(&stats_str)?;
+    println!("✅ Contract stats: modules_registered={}", stats["modules_registered"]);
 
     Ok(())
 }
 
 #[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
-async fn test_ibc_client_functions() -> Result<()> {
-    println!("🧪 Testing IBC client functions...");
-
-    // Test getting client state (should return empty/error for non-existent client)
-    let response = rpc_view_call("ibc_get_client_state", json!({
-        "client_id": "07-tendermint-0"
-    })).await;
+async fn test_all_testnet_functions() -> Result<()> {
+    println!("🧪 Running comprehensive testnet integration test...");
+    println!("Contract: {}", TESTNET_CONTRACT_ID);
     
-    // This should fail gracefully
-    match response {
-        Ok(_) => println!("✅ Client state query successful"),
-        Err(e) => println!("✅ Client state query failed as expected: {}", e),
-    }
-
-    // Test getting consensus state
-    let response = rpc_view_call("ibc_get_consensus_state", json!({
-        "client_id": "07-tendermint-0",
-        "height": 1000
-    })).await;
-
-    match response {
-        Ok(_) => println!("✅ Consensus state query successful"),
-        Err(e) => println!("✅ Consensus state query failed as expected: {}", e),
-    }
-
+    // Run all tests
+    test_basic_contract_functions().await?;
+    test_router_module_functions().await?;
+    
+    println!("🎉 All testnet integration tests passed!");
     Ok(())
 }
 
+// IBC tests will be added when IBC modules are deployed
 #[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
-async fn test_ibc_connection_functions() -> Result<()> {
-    println!("🧪 Testing IBC connection functions...");
-
-    // Test getting connection (should return empty/error for non-existent connection)
-    let response = rpc_view_call("ibc_get_connection", json!({
-        "connection_id": "connection-0"
-    })).await;
-
-    match response {
-        Ok(_) => println!("✅ Connection query successful"),
-        Err(e) => println!("✅ Connection query failed as expected: {}", e),
-    }
-
+#[ignore = "IBC modules not yet deployed"]
+async fn test_ibc_module_integration() -> Result<()> {
+    println!("🧪 IBC module tests will be implemented when IBC modules are deployed");
+    // TODO: Add tests for IBC client, connection, channel, and transfer modules
     Ok(())
 }
 
-#[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
-async fn test_ibc_channel_functions() -> Result<()> {
-    println!("🧪 Testing IBC channel functions...");
-
-    // Test getting channel
-    let response = rpc_view_call("ibc_get_channel", json!({
-        "port_id": "transfer",
-        "channel_id": "channel-0"
-    })).await;
-
-    match response {
-        Ok(_) => println!("✅ Channel query successful"),
-        Err(e) => println!("✅ Channel query failed as expected: {}", e),
-    }
-
-    // Test getting next sequence send
-    let response = rpc_view_call("ibc_get_next_sequence_send", json!({
-        "port_id": "transfer", 
-        "channel_id": "channel-0"
-    })).await;
-
-    match response {
-        Ok(_) => println!("✅ Sequence query successful"),
-        Err(e) => println!("✅ Sequence query failed as expected: {}", e),
-    }
-
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
-async fn test_ics20_token_transfer_functions() -> Result<()> {
-    println!("🧪 Testing ICS-20 token transfer functions...");
-
-    // Test creating IBC denomination
-    let response = rpc_view_call("ibc_create_ibc_denom", json!({
-        "port_id": "transfer",
-        "channel_id": "channel-0", 
-        "denom": "unear"
-    })).await?;
-    
-    let ibc_denom = parse_rpc_result_as_string(&response)?;
-    println!("✅ Created IBC denomination: {}", ibc_denom);
-
-    // Test source zone detection
-    let response = rpc_view_call("ibc_is_source_zone", json!({
-        "port_id": "transfer",
-        "channel_id": "channel-0",
-        "denom": "unear"
-    })).await?;
-    
-    let is_source_str = parse_rpc_result_as_string(&response)?;
-    let is_source: bool = is_source_str.parse()?;
-    println!("✅ Is source zone for unear: {}", is_source);
-
-    // Test getting escrowed amount (should be 0)
-    let response = rpc_view_call("ibc_get_escrowed_amount", json!({
-        "port_id": "transfer",
-        "channel_id": "channel-0",
-        "denom": "unear"
-    })).await?;
-    
-    let escrowed_str = parse_rpc_result_as_string(&response)?;
-    let escrowed: u128 = escrowed_str.parse()?;
-    println!("✅ Escrowed amount: {}", escrowed);
-    assert_eq!(escrowed, 0);
-
-    // Test getting voucher supply for a non-existent token (should be 0)
-    let response = rpc_view_call("ibc_get_voucher_supply", json!({
-        "denom": "ibc/nonexistent"
-    })).await?;
-    
-    let supply_str = parse_rpc_result_as_string(&response)?;
-    let supply: u128 = supply_str.parse()?;
-    println!("✅ Voucher supply: {}", supply);
-    assert_eq!(supply, 0);
-
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
-async fn test_multistore_proof_functions() -> Result<()> {
-    println!("🧪 Testing multi-store proof functions...");
-
-    // Test multistore membership verification with mock data (should fail gracefully)
-    let response = rpc_view_call("ibc_verify_multistore_membership", json!({
-        "client_id": "07-tendermint-0",
-        "height": 1000,
-        "store_name": "bank",
-        "key": "0x62616c616e6365732f636f736d6f73316163636f756e74",
-        "value": "0x31303030303030", 
-        "proof": "0x0a100801180320012a080a061a040801200110011a20c2d0c53d0fcf63bbf5bb4f5c3d9a5b4c8f71d4b7c8c9f43b3a2c7d8e9f0a1b2c"
-    })).await;
-
-    match response {
-        Ok(resp) => {
-            // Try to parse as boolean or handle error response
-            match parse_rpc_result_as_string(&resp) {
-                Ok(result_str) => {
-                    if let Ok(is_valid) = result_str.parse::<bool>() {
-                        println!("✅ Multistore verification result: {}", is_valid);
-                    } else {
-                        println!("✅ Multistore verification returned: {}", result_str);
-                    }
-                },
-                Err(_) => println!("✅ Multistore verification completed (complex response)"),
-            }
-        },
-        Err(e) => println!("✅ Multistore verification failed as expected: {}", e),
-    }
-
-    Ok(())
-}
-
-#[tokio::test]
-#[ignore = "Old interface - needs update for modular architecture"]
-async fn test_transfer_validation() -> Result<()> {
-    println!("🧪 Testing transfer validation...");
-
-    // Test transfer validation with invalid channel (should fail)
-    let response = rpc_view_call("ibc_validate_transfer", json!({
-        "source_port": "transfer",
-        "source_channel": "channel-999",
-        "denom": "unear", 
-        "amount": "1000000",
-        "sender": TESTNET_CONTRACT_ID
-    })).await;
-
-    match response {
-        Ok(resp) => {
-            println!("✅ Transfer validation completed: {:?}", resp);
-        },
-        Err(e) => {
-            println!("✅ Transfer validation failed as expected: {}", e);
-        }
-    }
-
-    // Test validation with zero amount (should fail)
-    let response = rpc_view_call("ibc_validate_transfer", json!({
-        "source_port": "transfer",
-        "source_channel": "channel-0",
-        "denom": "unear",
-        "amount": "0",
-        "sender": TESTNET_CONTRACT_ID
-    })).await;
-
-    match response {
-        Ok(resp) => {
-            println!("✅ Zero amount validation completed: {:?}", resp);
-        }, 
-        Err(e) => {
-            println!("✅ Zero amount validation failed as expected: {}", e);
-        }
-    }
-
-    Ok(())
-}
-
-#[tokio::test] 
-async fn test_comprehensive_contract_integration() -> Result<()> {
-    println!("🚀 Running comprehensive contract integration test...");
-
-    // 1. Test basic functionality
-    let response = rpc_view_call("get_block_height", json!({})).await?;
-    let block_height_str = parse_rpc_result_as_string(&response)?;
-    let block_height: u64 = block_height_str.parse()?;
-    println!("✅ Step 1: Contract responsive - block height: {}", block_height);
-
-    // 2. Test IBC denomination operations
-    let response = rpc_view_call("ibc_create_ibc_denom", json!({
-        "port_id": "transfer",
-        "channel_id": "channel-0",
-        "denom": "test-token"
-    })).await?;
-    let ibc_denom = parse_rpc_result_as_string(&response)?;
-    println!("✅ Step 2: IBC denomination created: {}", ibc_denom);
-
-    // 3. Test source zone detection  
-    let response = rpc_view_call("ibc_is_source_zone", json!({
-        "port_id": "transfer", 
-        "channel_id": "channel-0",
-        "denom": "test-token"
-    })).await?;
-    let is_source_str = parse_rpc_result_as_string(&response)?;
-    let is_source: bool = is_source_str.parse()?;
-    println!("✅ Step 3: Source zone detection: {}", is_source);
-
-    // 4. Test escrowed amounts
-    let response = rpc_view_call("ibc_get_escrowed_amount", json!({
-        "port_id": "transfer",
-        "channel_id": "channel-0", 
-        "denom": "test-token"
-    })).await?;
-    let escrowed_str = parse_rpc_result_as_string(&response)?;
-    let escrowed: u128 = escrowed_str.parse()?;
-    println!("✅ Step 4: Escrowed amount: {}", escrowed);
-
-    // 5. Test error conditions work properly
-    let error_response = rpc_view_call("ibc_validate_transfer", json!({
-        "source_port": "transfer",
-        "source_channel": "channel-999",
-        "denom": "test-token",
-        "amount": "1000",
-        "sender": TESTNET_CONTRACT_ID
-    })).await;
-    
-    match error_response {
-        Ok(_) => println!("✅ Step 5: Error validation completed"),
-        Err(_) => println!("✅ Step 5: Error conditions handled correctly"),
-    }
-
-    println!("🎉 Comprehensive integration test completed successfully!");
-    Ok(())
-}
