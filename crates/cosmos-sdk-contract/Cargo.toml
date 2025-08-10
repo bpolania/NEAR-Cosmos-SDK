@@ -19,6 +19,11 @@ crate-type = ["cdylib", "rlib"]
 # Specify this is a NEAR smart contract
 # This helps cargo-near identify the package in a workspace
 
+[package.metadata.near.reproducible_build]
+# Docker image to use for reproducible builds
+docker_image = "ghcr.io/near/contract-builder"
+docker_image_digest = "sha256:5e8a3e9f8de27e48cd0028e4a3d87f920f173e45848884e5e0c726cf4f8c47a0"
+
 [dependencies]
 # NEAR SDK for smart contract development
 near-sdk = { version = "5.1.0", features = ["legacy"] }
