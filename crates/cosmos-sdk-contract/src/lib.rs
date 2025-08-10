@@ -1,7 +1,8 @@
 // Modular Router Contract - Clean implementation without symbol conflicts
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, Promise, ext_contract};
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 pub type Balance = u128;
 
@@ -11,6 +12,76 @@ pub mod types;
 pub mod handler;
 pub mod crypto;
 pub mod contracts;
+
+// Cross-contract interface for WasmModule
+#[ext_contract(ext_wasm_module)]
+trait ExtWasmModule {
+    fn store_code(
+        &mut self,
+        sender: AccountId,
+        wasm_byte_code: Vec<u8>,
+        source: Option<String>,
+        builder: Option<String>,
+        instantiate_permission: Option<AccessConfig>,
+    ) -> u64;
+    
+    fn instantiate(
+        &mut self,
+        sender: AccountId,
+        code_id: u64,
+        msg: Vec<u8>,
+        funds: Vec<Coin>,
+        label: String,
+        admin: Option<String>,
+    ) -> String;
+    
+    fn execute(
+        &mut self,
+        sender: AccountId,
+        contract_addr: String,
+        msg: Vec<u8>,
+        funds: Vec<Coin>,
+    ) -> String;
+
+    fn get_code_info(&self, code_id: u64) -> Option<CodeInfo>;
+    fn get_contract_info(&self, contract_addr: String) -> Option<ContractInfo>;
+    fn health_check(&self) -> serde_json::Value;
+}
+
+// Types for cross-contract communication
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessConfig {
+    Nobody {},
+    OnlyAddress { address: String },
+    Everybody {},
+    AnyOfAddresses { addresses: Vec<String> },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Coin {
+    pub denom: String,
+    pub amount: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CodeInfo {
+    pub code_id: u64,
+    pub creator: String,
+    pub code_hash: Vec<u8>,
+    pub source: String,
+    pub builder: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ContractInfo {
+    pub address: String,
+    pub code_id: u64,
+    pub creator: String,
+    pub admin: Option<String>,
+    pub label: String,
+    pub created: u64,
+}
 
 // Router Contract Implementation
 #[near_bindgen]
@@ -106,6 +177,98 @@ impl ModularCosmosRouter {
             "owner": self.owner,
             "type": "modular_router"
         })
+    }
+
+    // CosmWasm routing methods
+
+    /// Store WASM code via the wasm module
+    pub fn wasm_store_code(
+        &mut self,
+        wasm_byte_code: Vec<u8>,
+        source: Option<String>,
+        builder: Option<String>,
+        instantiate_permission: Option<AccessConfig>,
+    ) -> Promise {
+        let wasm_contract = self.registered_modules.get("wasm")
+            .expect("Wasm module not registered")
+            .parse::<AccountId>()
+            .expect("Invalid wasm module account ID");
+
+        let sender = env::predecessor_account_id();
+        
+        ext_wasm_module::ext(wasm_contract)
+            .store_code(sender, wasm_byte_code, source, builder, instantiate_permission)
+    }
+
+    /// Instantiate a CosmWasm contract via the wasm module
+    pub fn wasm_instantiate(
+        &mut self,
+        code_id: u64,
+        msg: Vec<u8>,
+        funds: Vec<Coin>,
+        label: String,
+        admin: Option<String>,
+    ) -> Promise {
+        let wasm_contract = self.registered_modules.get("wasm")
+            .expect("Wasm module not registered")
+            .parse::<AccountId>()
+            .expect("Invalid wasm module account ID");
+
+        let sender = env::predecessor_account_id();
+        
+        ext_wasm_module::ext(wasm_contract)
+            .instantiate(sender, code_id, msg, funds, label, admin)
+    }
+
+    /// Execute a CosmWasm contract via the wasm module
+    pub fn wasm_execute(
+        &mut self,
+        contract_addr: String,
+        msg: Vec<u8>,
+        funds: Vec<Coin>,
+    ) -> Promise {
+        let wasm_contract = self.registered_modules.get("wasm")
+            .expect("Wasm module not registered")
+            .parse::<AccountId>()
+            .expect("Invalid wasm module account ID");
+
+        let sender = env::predecessor_account_id();
+        
+        ext_wasm_module::ext(wasm_contract)
+            .execute(sender, contract_addr, msg, funds)
+    }
+
+    /// Get code info from the wasm module
+    pub fn wasm_get_code_info(&self, code_id: u64) -> Promise {
+        let wasm_contract = self.registered_modules.get("wasm")
+            .expect("Wasm module not registered")
+            .parse::<AccountId>()
+            .expect("Invalid wasm module account ID");
+        
+        ext_wasm_module::ext(wasm_contract)
+            .get_code_info(code_id)
+    }
+
+    /// Get contract info from the wasm module
+    pub fn wasm_get_contract_info(&self, contract_addr: String) -> Promise {
+        let wasm_contract = self.registered_modules.get("wasm")
+            .expect("Wasm module not registered")
+            .parse::<AccountId>()
+            .expect("Invalid wasm module account ID");
+        
+        ext_wasm_module::ext(wasm_contract)
+            .get_contract_info(contract_addr)
+    }
+
+    /// Get health check from the wasm module
+    pub fn wasm_health_check(&self) -> Promise {
+        let wasm_contract = self.registered_modules.get("wasm")
+            .expect("Wasm module not registered")
+            .parse::<AccountId>()
+            .expect("Invalid wasm module account ID");
+        
+        ext_wasm_module::ext(wasm_contract)
+            .health_check()
     }
 }
 

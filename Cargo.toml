@@ -5,9 +5,11 @@ members = [
     "crates/ibc-relayer",
 ]
 
-# Contract needs special handling due to WASM target
+# Contracts need special handling due to WASM target
 exclude = [
     "crates/cosmos-sdk-contract",
+    "crates/wasm-module-contract",
+    "local-deploy",
 ]
 
 # Workspace-wide dependencies for consistency
