@@ -1,16 +1,38 @@
 [package]
 name = "wasm-module-contract"
-version = "0.9.0"
+version = "0.1.0"
 edition = "2021"
+authors = ["Proxima Contributors"]
+description = "CosmWasm x/wasm module for NEAR - handles CosmWasm contract execution"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bpolania/NEAR-Cosmos-SDK"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.contract]
+# Specify this is a NEAR smart contract
+
+[package.metadata.near.reproducible_build]
+docker_image = "ghcr.io/near/contract-builder"
+docker_image_digest = "sha256:5e8a3e9f8de27e48cd0028e4a3d87f920f173e45848884e5e0c726cf4f8c47a0"
 
 [dependencies]
-near-sdk = { version = "5.0.0", features = ["legacy"] }
+near-sdk = { version = "5.1.0", features = ["legacy"] }
 borsh = { version = "1.0", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+schemars = "0.8"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.21"
+
+[dev-dependencies]
+near-sdk = { version = "5.1.0", features = ["unit-testing"] }
+near-workspaces = "0.10.0"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
+base64 = "0.21"
 
 [profile.release]
 codegen-units = 1
