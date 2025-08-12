@@ -3,7 +3,18 @@
 /// Helper functions and mock data for testing CosmWasm contracts
 
 use near_sdk::json_types::Base64VecU8;
+use near_sdk::AccountId;
 use serde_json::{json, Value};
+use sha2::{Sha256, Digest};
+
+/// Convert NEAR account to Cosmos address for testing
+pub fn to_cosmos_address(account: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(account.as_bytes());
+    let hash = hasher.finalize();
+    // Take first 20 bytes and encode as hex (simplified for testing)
+    format!("proxima1{}", hex::encode(&hash[..20]))
+}
 
 /// Generate a minimal valid WASM module for testing
 /// This creates a WASM module with the basic structure but no actual functionality
@@ -70,7 +81,7 @@ pub fn generate_mock_wasm(size_kb: usize) -> Base64VecU8 {
     Base64VecU8::from(wasm)
 }
 
-/// Create a standard CW20 instantiation message
+/// Create a standard CW20 instantiation message with Cosmos addresses
 pub fn create_cw20_init_msg(
     name: &str,
     symbol: &str,
@@ -82,16 +93,31 @@ pub fn create_cw20_init_msg(
     let balances: Vec<Value> = initial_balances
         .iter()
         .map(|(address, amount)| {
+            // Convert NEAR addresses to Cosmos format if needed
+            let cosmos_addr = if address.contains(".") {
+                to_cosmos_address(address)
+            } else if address.starts_with("proxima1") {
+                address.to_string()
+            } else {
+                to_cosmos_address(address)
+            };
             json!({
-                "address": address,
+                "address": cosmos_addr,
                 "amount": amount
             })
         })
         .collect();
     
     let mint = minter.map(|m| {
+        let cosmos_minter = if m.contains(".") {
+            to_cosmos_address(m)
+        } else if m.starts_with("proxima1") {
+            m.to_string()
+        } else {
+            to_cosmos_address(m)
+        };
         json!({
-            "minter": m,
+            "minter": cosmos_minter,
             "cap": cap
         })
     });

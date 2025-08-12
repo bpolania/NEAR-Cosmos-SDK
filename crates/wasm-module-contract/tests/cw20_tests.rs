@@ -13,6 +13,16 @@ use near_sdk::{testing_env, AccountId};
 use near_sdk::json_types::Base64VecU8;
 use serde_json::json;
 use wasm_module_contract::{WasmModuleContract, CodeID};
+use sha2::{Sha256, Digest};
+
+/// Helper to convert NEAR account to mock Cosmos address for testing
+fn to_cosmos_address(account: &AccountId) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(account.as_bytes());
+    let hash = hasher.finalize();
+    // Take first 20 bytes and encode as hex (simplified for testing)
+    format!("proxima1{}", hex::encode(&hash[..20]))
+}
 
 /// Test helper to create a new contract instance
 fn setup_contract() -> WasmModuleContract {
@@ -61,6 +71,10 @@ mod instantiation_tests {
         let mut contract = setup_contract();
         let code_id = store_cw20_code(&mut contract);
         
+        // Convert NEAR accounts to Cosmos addresses for CW20
+        let minter_addr = to_cosmos_address(&accounts(1));
+        let initial_holder = to_cosmos_address(&accounts(1));
+        
         // Prepare instantiation message for CW20
         let init_msg = json!({
             "name": "Test Token",
@@ -68,12 +82,12 @@ mod instantiation_tests {
             "decimals": 6,
             "initial_balances": [
                 {
-                    "address": accounts(1).to_string(),
+                    "address": initial_holder,
                     "amount": "1000000"
                 }
             ],
             "mint": {
-                "minter": accounts(1).to_string(),
+                "minter": minter_addr,
                 "cap": "1000000000"
             },
             "marketing": null
@@ -87,7 +101,8 @@ mod instantiation_tests {
             Some(accounts(1).to_string()),
         );
         
-        assert!(response.address.starts_with("contract"));
+        // Contract addresses now use Cosmos format
+        assert!(response.address.starts_with("proxima1"));
         assert!(response.data.is_some());
     }
 
@@ -102,15 +117,15 @@ mod instantiation_tests {
             "decimals": 18,
             "initial_balances": [
                 {
-                    "address": accounts(1).to_string(),
+                    "address": to_cosmos_address(&accounts(1)),
                     "amount": "1000000000000000000"
                 },
                 {
-                    "address": accounts(2).to_string(),
+                    "address": to_cosmos_address(&accounts(2)),
                     "amount": "500000000000000000"
                 },
                 {
-                    "address": accounts(3).to_string(),
+                    "address": to_cosmos_address(&accounts(3)),
                     "amount": "250000000000000000"
                 }
             ],
@@ -126,7 +141,7 @@ mod instantiation_tests {
             None,
         );
         
-        assert!(response.address.starts_with("contract"));
+        assert!(response.address.starts_with("proxima1"));
     }
 }
 
@@ -143,7 +158,7 @@ mod mint_tests {
             "decimals": 6,
             "initial_balances": [],
             "mint": {
-                "minter": accounts(1).to_string(),
+                "minter": to_cosmos_address(&accounts(1)),
                 "cap": null  // No cap on minting
             },
             "marketing": null
@@ -168,7 +183,7 @@ mod mint_tests {
         // Mint tokens to a recipient
         let mint_msg = json!({
             "mint": {
-                "recipient": accounts(2).to_string(),
+                "recipient": to_cosmos_address(&accounts(2)),
                 "amount": "1000000"
             }
         }).to_string();
@@ -817,6 +832,6 @@ mod edge_case_tests {
             None,
         );
         
-        assert!(response.address.starts_with("contract"));
+        assert!(response.address.starts_with("proxima1"));
     }
 }

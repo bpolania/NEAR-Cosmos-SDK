@@ -52,7 +52,12 @@ echo "  Symbol: $TOKEN_SYMBOL"
 echo "  Label: $CONTRACT_LABEL"
 echo ""
 
-# Step 3: Create instantiation message with various features
+# Step 3: Generate Cosmos addresses for accounts
+SIGNER_COSMOS="proxima1$(echo -n "$SIGNER" | sha256sum | cut -c1-40)"
+ALICE_COSMOS="proxima1$(echo -n "alice.testnet" | sha256sum | cut -c1-40)"
+BOB_COSMOS="proxima1$(echo -n "bob.testnet" | sha256sum | cut -c1-40)"
+
+# Step 4: Create instantiation message with various features
 INIT_MSG=$(cat <<EOF
 {
     "name": "$TOKEN_NAME",
@@ -60,26 +65,26 @@ INIT_MSG=$(cat <<EOF
     "decimals": 6,
     "initial_balances": [
         {
-            "address": "$SIGNER",
+            "address": "$SIGNER_COSMOS",
             "amount": "1000000000"
         },
         {
-            "address": "alice.testnet",
+            "address": "$ALICE_COSMOS",
             "amount": "500000000"
         },
         {
-            "address": "bob.testnet",
+            "address": "$BOB_COSMOS",
             "amount": "250000000"
         }
     ],
     "mint": {
-        "minter": "$SIGNER",
+        "minter": "$SIGNER_COSMOS",
         "cap": "10000000000"
     },
     "marketing": {
         "project": "CW20 Test Project",
         "description": "A test token for CW20 functionality on NEAR",
-        "marketing": "$SIGNER",
+        "marketing": "$SIGNER_COSMOS",
         "logo": null
     }
 }
@@ -89,7 +94,7 @@ EOF
 # Escape the JSON for the command
 ESCAPED_MSG=$(echo "$INIT_MSG" | jq -c . | sed 's/"/\\"/g')
 
-# Step 4: Instantiate the token
+# Step 5: Instantiate the token
 echo -e "${YELLOW}Instantiating token contract...${NC}"
 RESULT=$($NEAR_CLI contract call-function as-transaction \
     "$WASM_MODULE" instantiate \
