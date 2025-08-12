@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
 use sha2::{Sha256, Digest};
 
+mod address;
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -139,6 +141,7 @@ impl WasmModuleContract {
     // =============================================================================
 
     /// Store WASM code and return CodeID
+    #[payable]
     pub fn store_code(
         &mut self,
         wasm_byte_code: Base64VecU8,
@@ -171,10 +174,11 @@ impl WasmModuleContract {
         let code_id = self.next_code_id;
         self.next_code_id += 1;
         
-        // Store code info
+        // Store code info with Cosmos-style creator address
+        let creator_cosmos = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
         let code_info = CodeInfo {
             code_id,
-            creator: env::predecessor_account_id().to_string(),
+            creator: creator_cosmos,
             code_hash: code_hash.clone(),
             source: source.unwrap_or_default(),
             builder: builder.unwrap_or_default(),
@@ -213,16 +217,21 @@ impl WasmModuleContract {
         // Check instantiate permission
         self.check_instantiate_permission(&code_info.instantiate_permission);
         
-        // Generate contract address
+        // Generate Cosmos-style contract address
         let instance_id = self.next_instance_id;
         self.next_instance_id += 1;
-        let contract_addr = format!("contract{}.{}", instance_id, env::current_account_id());
+        let contract_addr = address::generate_contract_address(
+            &env::current_account_id(),
+            instance_id,
+            None  // Uses "proxima" prefix by default
+        );
         
-        // Store contract info
+        // Store contract info with Cosmos-style creator address
+        let creator_cosmos = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
         let contract_info = ContractInfo {
             address: contract_addr.clone(),
             code_id,
-            creator: env::predecessor_account_id().to_string(),
+            creator: creator_cosmos,
             admin,
             label,
             created: env::block_height(),
@@ -456,6 +465,13 @@ impl WasmModuleContract {
         }
     }
 }
+
+// =============================================================================
+// Test Utilities
+// =============================================================================
+
+#[cfg(test)]
+pub mod test_utils;
 
 // =============================================================================
 // Tests
