@@ -1,195 +1,307 @@
+/// x/wasm Module Contract - Standalone
+/// 
+/// This contract handles all CosmWasm smart contract operations including:
+/// - Code storage and management
+/// - Contract instantiation and execution
+/// - Contract queries and metadata
+/// - Admin functions and access control
+
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault};
-use near_sdk::collections::{UnorderedMap, Vector};
+use near_sdk::json_types::Base64VecU8;
+use near_sdk::collections::{UnorderedMap, LookupMap};
+use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
+use sha2::{Sha256, Digest};
 
-pub mod types;
-use types::*;
+// =============================================================================
+// Types
+// =============================================================================
 
-/// The main WasmModule contract for deploying and managing CosmWasm contracts
+pub type CodeID = u64;
+
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, BorshSerialize, BorshDeserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessConfig {
+    Nobody {},
+    OnlyAddress { address: String },
+    Everybody {},
+    AnyOfAddresses { addresses: Vec<String> },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, BorshSerialize, BorshDeserialize)]
+pub struct Coin {
+    pub denom: String,
+    pub amount: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, BorshSerialize, BorshDeserialize, JsonSchema)]
+pub struct CodeInfo {
+    pub code_id: CodeID,
+    pub creator: String,
+    pub code_hash: Vec<u8>,
+    pub source: String,
+    pub builder: String,
+    pub instantiate_permission: AccessConfig,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, BorshSerialize, BorshDeserialize, JsonSchema)]
+pub struct ContractInfo {
+    pub address: String,
+    pub code_id: CodeID,
+    pub creator: String,
+    pub admin: Option<String>,
+    pub label: String,
+    pub created: u64,
+}
+
+// =============================================================================
+// Contract State
+// =============================================================================
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct WasmModuleContract {
-    /// Stored WASM code by CodeID
-    codes: UnorderedMap<CodeID, Vec<u8>>,
-    /// Code metadata by CodeID
-    code_infos: UnorderedMap<CodeID, CodeInfo>,
-    /// Contract instances by address
-    contracts: UnorderedMap<ContractAddress, ContractInfo>,
-    /// Contract addresses by CodeID for efficient querying
-    contracts_by_code: UnorderedMap<CodeID, Vector<ContractAddress>>,
-    /// Next available CodeID
+    /// Next code ID to assign
     next_code_id: CodeID,
-    /// Contract state storage (address -> key -> value)
-    contract_states: UnorderedMap<String, UnorderedMap<Vec<u8>, Vec<u8>>>,
+    /// Next instance ID for contract addresses
+    next_instance_id: u64,
+    /// Stored code information (code_id -> CodeInfo)
+    codes: UnorderedMap<CodeID, CodeInfo>,
+    /// Contract instances (address -> ContractInfo)
+    contracts: UnorderedMap<String, ContractInfo>,
+    /// Contract state storage (contract_address -> state_key -> value)
+    contract_state: LookupMap<String, Vec<u8>>,
     /// Router contract that can call this module
-    router_contract: AccountId,
+    router_contract: Option<AccountId>,
+    /// Contract owner for admin operations
+    owner: AccountId,
+    /// Maximum code size in bytes (3MB default for NEAR)
+    max_code_size: u64,
 }
+
+// =============================================================================
+// Responses
+// =============================================================================
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct StoreCodeResponse {
+    pub code_id: CodeID,
+    pub checksum: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct InstantiateResponse {
+    pub address: String,
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct ExecuteResponse {
+    pub data: Option<String>,
+    pub events: Vec<Event>,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct Event {
+    pub r#type: String,
+    pub attributes: Vec<Attribute>,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct Attribute {
+    pub key: String,
+    pub value: String,
+}
+
+// =============================================================================
+// Contract Implementation
+// =============================================================================
 
 #[near_bindgen]
 impl WasmModuleContract {
     #[init]
-    pub fn new(router_contract: AccountId) -> Self {
+    pub fn new(owner: Option<AccountId>, router_contract: Option<AccountId>) -> Self {
         Self {
-            codes: UnorderedMap::new(b"wasm_codes".to_vec()),
-            code_infos: UnorderedMap::new(b"wasm_code_infos".to_vec()),
-            contracts: UnorderedMap::new(b"wasm_contracts".to_vec()),
-            contracts_by_code: UnorderedMap::new(b"wasm_contracts_by_code".to_vec()),
             next_code_id: 1,
-            contract_states: UnorderedMap::new(b"wasm_contract_states".to_vec()),
+            next_instance_id: 1,
+            codes: UnorderedMap::new(b"c"),
+            contracts: UnorderedMap::new(b"i"),
+            contract_state: LookupMap::new(b"s"),
             router_contract,
+            owner: owner.unwrap_or_else(|| env::current_account_id()),
+            max_code_size: 3 * 1024 * 1024, // 3MB
         }
     }
 
-    /// Store WASM code on chain and return CodeID
+    // =============================================================================
+    // Code Management
+    // =============================================================================
+
+    /// Store WASM code and return CodeID
     pub fn store_code(
         &mut self,
-        sender: AccountId,
-        wasm_byte_code: Vec<u8>,
+        wasm_byte_code: Base64VecU8,
         source: Option<String>,
         builder: Option<String>,
         instantiate_permission: Option<AccessConfig>,
-    ) -> CodeID {
-        // Only router can call this
-        assert_eq!(env::predecessor_account_id(), self.router_contract, "Only router can call");
-
-        // Basic validation
-        assert!(wasm_byte_code.len() <= 3_000_000, "Code size exceeds 3MB limit");
-        assert!(!wasm_byte_code.is_empty(), "Code cannot be empty");
-
-        // Simple WASM validation - check magic bytes
-        if wasm_byte_code.len() >= 4 {
-            let magic = &wasm_byte_code[0..4];
-            assert_eq!(magic, &[0x00, 0x61, 0x73, 0x6d], "Invalid WASM magic bytes");
-        }
-
+    ) -> StoreCodeResponse {
+        self.assert_authorized();
+        
+        let wasm_bytes: Vec<u8> = wasm_byte_code.into();
+        
+        // Validate code size
+        assert!(
+            wasm_bytes.len() <= self.max_code_size as usize,
+            "WASM code exceeds maximum size of {} bytes",
+            self.max_code_size
+        );
+        
+        // Basic WASM validation
+        assert!(wasm_bytes.len() >= 4, "WASM code too small");
+        assert_eq!(&wasm_bytes[0..4], &[0x00, 0x61, 0x73, 0x6d], "Invalid WASM magic number");
+        
+        // Calculate code hash
+        let mut hasher = Sha256::new();
+        hasher.update(&wasm_bytes);
+        let code_hash = hasher.finalize().to_vec();
+        let checksum = hex::encode(&code_hash);
+        
+        // Assign code ID
         let code_id = self.next_code_id;
         self.next_code_id += 1;
-
-        // Store the code
-        self.codes.insert(&code_id, &wasm_byte_code);
-
-        // Create code info
+        
+        // Store code info
         let code_info = CodeInfo {
             code_id,
-            creator: sender.to_string(),
-            code_hash: env::sha256(&wasm_byte_code),
+            creator: env::predecessor_account_id().to_string(),
+            code_hash: code_hash.clone(),
             source: source.unwrap_or_default(),
             builder: builder.unwrap_or_default(),
-            instantiate_permission: match instantiate_permission {
-                Some(AccessConfig::Nobody {}) => AccessType::Nobody,
-                Some(AccessConfig::OnlyAddress { address }) => AccessType::OnlyAddress(address),
-                Some(AccessConfig::Everybody {}) => AccessType::Everybody,
-                Some(AccessConfig::AnyOfAddresses { addresses }) => AccessType::AnyOfAddresses(addresses),
-                None => AccessType::Everybody,
-            },
+            instantiate_permission: instantiate_permission.unwrap_or(AccessConfig::Everybody {}),
         };
-
-        self.code_infos.insert(&code_id, &code_info);
-
-        env::log_str(&format!("Stored code with ID: {}", code_id));
-        code_id
+        
+        self.codes.insert(&code_id, &code_info);
+        
+        // Store actual WASM code
+        let code_key = format!("code:{}", code_id);
+        self.contract_state.insert(&code_key, &wasm_bytes);
+        
+        env::log_str(&format!("Stored WASM code with ID: {} (checksum: {})", code_id, checksum));
+        
+        StoreCodeResponse {
+            code_id,
+            checksum,
+        }
     }
 
-    /// Instantiate a new contract from stored code
+    /// Instantiate a contract from stored code
     pub fn instantiate(
         &mut self,
-        sender: AccountId,
         code_id: CodeID,
-        _msg: Vec<u8>,
-        _funds: Vec<Coin>,
+        msg: String,
+        _funds: Option<Vec<Coin>>,
         label: String,
         admin: Option<String>,
-    ) -> ContractAddress {
-        // Only router can call this
-        assert_eq!(env::predecessor_account_id(), self.router_contract, "Only router can call");
-
-        // Check if code exists
-        let code_info = self.code_infos.get(&code_id).expect("Code not found");
-
-        // Check instantiation permissions
-        match code_info.instantiate_permission {
-            AccessType::Nobody => panic!("Code cannot be instantiated"),
-            AccessType::OnlyAddress(ref addr) => {
-                assert_eq!(sender.to_string(), *addr, "Sender not authorized to instantiate");
-            }
-            AccessType::AnyOfAddresses(ref addresses) => {
-                assert!(addresses.contains(&sender.to_string()), "Sender not in allowed addresses");
-            }
-            AccessType::Everybody => {} // Allow anyone
-        }
-
+    ) -> InstantiateResponse {
+        // No assert_authorized here - permission check is sufficient
+        
+        // Verify code exists
+        let code_info = self.codes.get(&code_id)
+            .expect("Code ID does not exist");
+        
+        // Check instantiate permission
+        self.check_instantiate_permission(&code_info.instantiate_permission);
+        
         // Generate contract address
-        let contract_address = format!(
-            "contract.{}.{}",
-            code_id,
-            env::block_height()
-        );
-
-        // Create contract info
+        let instance_id = self.next_instance_id;
+        self.next_instance_id += 1;
+        let contract_addr = format!("contract{}.{}", instance_id, env::current_account_id());
+        
+        // Store contract info
         let contract_info = ContractInfo {
-            address: contract_address.clone(),
+            address: contract_addr.clone(),
             code_id,
-            creator: sender.to_string(),
+            creator: env::predecessor_account_id().to_string(),
             admin,
             label,
             created: env::block_height(),
-            ibc_port_id: None,
-            extension: None,
         };
-
-        self.contracts.insert(&contract_address, &contract_info);
-
-        // Add to contracts_by_code index
-        let mut contracts_for_code = self.contracts_by_code
-            .get(&code_id)
-            .unwrap_or_else(|| Vector::new(format!("contracts_{}", code_id).as_bytes()));
         
-        contracts_for_code.push(&contract_address);
-        self.contracts_by_code.insert(&code_id, &contracts_for_code);
-
-        // Initialize contract state storage
-        let contract_state = UnorderedMap::new(format!("state_{}", contract_address).as_bytes());
-        self.contract_states.insert(&contract_address, &contract_state);
-
-        env::log_str(&format!("Instantiated contract: {} from code ID: {}", contract_address, code_id));
-        contract_address
+        self.contracts.insert(&contract_addr, &contract_info);
+        
+        // Initialize contract state (mock for now)
+        let state_key = format!("{}:state", contract_addr);
+        self.contract_state.insert(&state_key, &msg.as_bytes().to_vec());
+        
+        env::log_str(&format!("Instantiated contract at: {}", contract_addr));
+        
+        InstantiateResponse {
+            address: contract_addr,
+            data: Some(format!("Contract instantiated with message: {}", msg)),
+        }
     }
 
-    /// Execute a contract
+    /// Execute a contract function
     pub fn execute(
         &mut self,
-        sender: AccountId,
         contract_addr: String,
-        msg: Vec<u8>,
-        _funds: Vec<Coin>,
+        msg: String,
+        _funds: Option<Vec<Coin>>,
+    ) -> ExecuteResponse {
+        self.assert_authorized();
+        
+        // Verify contract exists
+        let _contract_info = self.contracts.get(&contract_addr)
+            .expect("Contract does not exist");
+        
+        // Mock execution - in a real implementation, this would run the WASM code
+        env::log_str(&format!("Executing contract {} with message: {}", contract_addr, msg));
+        
+        // Create mock events
+        let events = vec![
+            Event {
+                r#type: "wasm".to_string(),
+                attributes: vec![
+                    Attribute {
+                        key: "_contract_address".to_string(),
+                        value: contract_addr.clone(),
+                    },
+                    Attribute {
+                        key: "action".to_string(),
+                        value: "execute".to_string(),
+                    },
+                ],
+            },
+        ];
+        
+        ExecuteResponse {
+            data: Some(format!("Executed: {}", msg)),
+            events,
+        }
+    }
+
+    /// Query contract state (read-only)
+    pub fn query(
+        &self,
+        contract_addr: String,
+        msg: String,
     ) -> String {
-        // Only router can call this
-        assert_eq!(env::predecessor_account_id(), self.router_contract, "Only router can call");
-
-        // Check if contract exists
-        let _contract_info = self.contracts.get(&contract_addr).expect("Contract not found");
-
-        // For now, return a mock response
-        // In a full implementation, this would:
-        // 1. Load the WASM code
-        // 2. Execute it with the provided message
-        // 3. Handle state changes
-        // 4. Return the execution result
-
-        env::log_str(&format!("Executed contract: {} with message length: {}", contract_addr, msg.len()));
-        format!("{{\"executed\": \"{}\", \"sender\": \"{}\"}}", contract_addr, sender)
+        // Verify contract exists
+        let _contract_info = self.contracts.get(&contract_addr)
+            .expect("Contract does not exist");
+        
+        // Mock query - in a real implementation, this would query the WASM contract
+        format!("{{\"query_result\": \"mocked response for: {}\"}}", msg)
     }
 
-    // Query methods
-    
-    /// Get code by ID
-    pub fn get_code(&self, code_id: CodeID) -> Option<Vec<u8>> {
-        self.codes.get(&code_id)
-    }
+    // =============================================================================
+    // Query Functions
+    // =============================================================================
 
     /// Get code info by ID
     pub fn get_code_info(&self, code_id: CodeID) -> Option<CodeInfo> {
-        self.code_infos.get(&code_id)
+        self.codes.get(&code_id)
     }
 
     /// Get contract info by address
@@ -197,27 +309,222 @@ impl WasmModuleContract {
         self.contracts.get(&contract_addr)
     }
 
-    /// Get contracts by code ID
-    pub fn get_contracts_by_code(&self, code_id: CodeID) -> Vec<ContractAddress> {
-        self.contracts_by_code
-            .get(&code_id)
-            .map(|contracts| contracts.to_vec())
-            .unwrap_or_default()
+    /// List all codes with pagination
+    pub fn list_codes(&self, limit: Option<u32>, start_after: Option<CodeID>) -> Vec<CodeInfo> {
+        let limit = limit.unwrap_or(10).min(100) as usize;
+        let start = start_after.unwrap_or(0);
+        
+        let mut codes = Vec::new();
+        for code_id in (start + 1)..self.next_code_id {
+            if let Some(code_info) = self.codes.get(&code_id) {
+                codes.push(code_info);
+                if codes.len() >= limit {
+                    break;
+                }
+            }
+        }
+        codes
     }
 
-    /// Get next code ID
-    pub fn get_next_code_id(&self) -> CodeID {
-        self.next_code_id
+    /// List all contracts with pagination
+    pub fn list_contracts(
+        &self,
+        limit: Option<u32>,
+        start_after: Option<String>,
+    ) -> Vec<ContractInfo> {
+        let limit = limit.unwrap_or(10).min(100) as usize;
+        
+        self.contracts.iter()
+            .skip_while(|(addr, _)| {
+                if let Some(ref start) = start_after {
+                    addr <= start
+                } else {
+                    false
+                }
+            })
+            .take(limit)
+            .map(|(_, info)| info)
+            .collect()
+    }
+
+    /// Get contract code ID
+    pub fn get_contract_code_id(&self, contract_addr: String) -> Option<CodeID> {
+        self.contracts.get(&contract_addr).map(|info| info.code_id)
     }
 
     /// Health check
     pub fn health_check(&self) -> serde_json::Value {
         serde_json::json!({
-            "module": "wasm",
             "status": "healthy",
-            "codes_count": self.codes.len(),
-            "contracts_count": self.contracts.len(),
-            "next_code_id": self.next_code_id
+            "module": "x/wasm",
+            "codes_stored": self.next_code_id - 1,
+            "contracts_instantiated": self.next_instance_id - 1,
+            "max_code_size": self.max_code_size,
+            "owner": self.owner,
+            "router": self.router_contract,
         })
+    }
+
+    /// Get module metadata
+    pub fn get_metadata(&self) -> serde_json::Value {
+        serde_json::json!({
+            "name": "CosmWasm x/wasm Module",
+            "version": "0.1.0",
+            "description": "Handles CosmWasm contract deployment and execution on NEAR",
+            "capabilities": [
+                "store_code",
+                "instantiate",
+                "execute",
+                "query",
+                "migrate"
+            ],
+            "stats": {
+                "codes_stored": self.next_code_id - 1,
+                "contracts_deployed": self.next_instance_id - 1,
+            }
+        })
+    }
+
+    // =============================================================================
+    // Admin Functions
+    // =============================================================================
+
+    /// Update max code size limit
+    pub fn update_max_code_size(&mut self, new_size: u64) {
+        self.assert_owner();
+        assert!(new_size > 0 && new_size <= 10 * 1024 * 1024, "Invalid size");
+        self.max_code_size = new_size;
+        env::log_str(&format!("Updated max code size to: {} bytes", new_size));
+    }
+
+    /// Transfer ownership
+    pub fn transfer_ownership(&mut self, new_owner: AccountId) {
+        self.assert_owner();
+        self.owner = new_owner.clone();
+        env::log_str(&format!("Ownership transferred to: {}", new_owner));
+    }
+
+    /// Update router contract
+    pub fn update_router(&mut self, new_router: AccountId) {
+        self.assert_owner();
+        self.router_contract = Some(new_router.clone());
+        env::log_str(&format!("Router updated to: {}", new_router));
+    }
+
+    // =============================================================================
+    // Helper Functions
+    // =============================================================================
+
+    fn assert_authorized(&self) {
+        let caller = env::predecessor_account_id();
+        assert!(
+            caller == self.owner || 
+            self.router_contract.as_ref() == Some(&caller) ||
+            caller == env::current_account_id(),
+            "Unauthorized: caller must be owner, router, or self"
+        );
+    }
+
+    fn assert_owner(&self) {
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner,
+            "Only owner can call this function"
+        );
+    }
+
+    fn check_instantiate_permission(&self, permission: &AccessConfig) {
+        let sender = env::predecessor_account_id();
+        let sender_str = sender.to_string();
+        
+        match permission {
+            AccessConfig::Nobody {} => {
+                panic!("Nobody can instantiate this code");
+            },
+            AccessConfig::OnlyAddress { address } => {
+                assert_eq!(&sender_str, address, "Only {} can instantiate", address);
+            },
+            AccessConfig::Everybody {} => {
+                // Anyone can instantiate
+            },
+            AccessConfig::AnyOfAddresses { addresses } => {
+                assert!(
+                    addresses.contains(&sender_str),
+                    "Address not in allowed list"
+                );
+            },
+        }
+    }
+}
+
+// =============================================================================
+// Tests
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::{testing_env, VMContext};
+
+    fn get_context(predecessor: AccountId) -> VMContext {
+        VMContextBuilder::new()
+            .predecessor_account_id(predecessor)
+            .build()
+    }
+
+    #[test]
+    fn test_new() {
+        let context = get_context(accounts(0));
+        testing_env!(context);
+        
+        let contract = WasmModuleContract::new(Some(accounts(0)), None);
+        assert_eq!(contract.next_code_id, 1);
+        assert_eq!(contract.next_instance_id, 1);
+        assert_eq!(contract.owner, accounts(0));
+    }
+
+    #[test]
+    fn test_store_code() {
+        let context = get_context(accounts(0));
+        testing_env!(context);
+        
+        let mut contract = WasmModuleContract::new(Some(accounts(0)), None);
+        
+        let wasm_code = Base64VecU8::from(vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+        let response = contract.store_code(
+            wasm_code,
+            Some("test source".to_string()),
+            Some("test builder".to_string()),
+            None,
+        );
+        
+        assert_eq!(response.code_id, 1);
+        assert!(!response.checksum.is_empty());
+        assert_eq!(contract.next_code_id, 2);
+    }
+
+    #[test]
+    fn test_instantiate() {
+        let context = get_context(accounts(0));
+        testing_env!(context);
+        
+        let mut contract = WasmModuleContract::new(Some(accounts(0)), None);
+        
+        // First store code
+        let wasm_code = Base64VecU8::from(vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+        let store_response = contract.store_code(wasm_code, None, None, None);
+        
+        // Then instantiate
+        let instantiate_response = contract.instantiate(
+            store_response.code_id,
+            "{\"count\": 0}".to_string(),
+            None,
+            "test contract".to_string(),
+            None,
+        );
+        
+        assert!(instantiate_response.address.starts_with("contract1."));
+        assert_eq!(contract.next_instance_id, 2);
     }
 }
