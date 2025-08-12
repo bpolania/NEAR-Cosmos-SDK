@@ -139,6 +139,7 @@ impl WasmModuleContract {
     // =============================================================================
 
     /// Store WASM code and return CodeID
+    #[payable]
     pub fn store_code(
         &mut self,
         wasm_byte_code: Base64VecU8,
