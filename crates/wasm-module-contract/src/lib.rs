@@ -15,6 +15,8 @@ use schemars::JsonSchema;
 use sha2::{Sha256, Digest};
 
 mod address;
+mod host_functions;
+mod message_translator;
 
 // =============================================================================
 // Types
