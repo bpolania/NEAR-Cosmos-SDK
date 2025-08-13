@@ -247,7 +247,17 @@ impl VmExecutor {
                                         value: "transfer".to_string(),
                                     },
                                 ],
-                                events: vec![],
+                                events: vec![
+                                    crate::message_translator::Event {
+                                        r#type: "transfer".to_string(),
+                                        attributes: vec![
+                                            crate::message_translator::Attribute {
+                                                key: "action".to_string(),
+                                                value: "transfer".to_string(),
+                                            },
+                                        ],
+                                    },
+                                ],
                                 data: None,
                             })
                         } else if msg.get("mint").is_some() {
@@ -259,7 +269,17 @@ impl VmExecutor {
                                         value: "mint".to_string(),
                                     },
                                 ],
-                                events: vec![],
+                                events: vec![
+                                    crate::message_translator::Event {
+                                        r#type: "mint".to_string(),
+                                        attributes: vec![
+                                            crate::message_translator::Attribute {
+                                                key: "action".to_string(),
+                                                value: "mint".to_string(),
+                                            },
+                                        ],
+                                    },
+                                ],
                                 data: None,
                             })
                         } else {
