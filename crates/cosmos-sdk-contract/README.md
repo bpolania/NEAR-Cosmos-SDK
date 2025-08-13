@@ -40,7 +40,7 @@ Separate contracts for each module with cross-contract communication:
 #### Build All Contracts
 ```bash
 # Build router and all module contracts
-./deploy-modular.sh
+./scripts/deploy-modular.sh
 
 # Or build standalone wasm module only  
 ./build-wasm-module.sh
@@ -49,10 +49,10 @@ Separate contracts for each module with cross-contract communication:
 #### Deploy Modular Architecture
 ```bash
 # Deploy complete modular system
-./deploy-modular.sh --network=testnet --prefix=cosmos-sdk
+./scripts/deploy-modular.sh --network=testnet --prefix=cosmos-sdk
 
 # Deploy to custom network
-./deploy-modular.sh --network=mainnet --prefix=my-cosmos
+./scripts/deploy-modular.sh --network=mainnet --prefix=my-cosmos
 ```
 
 ### Available CosmWasm Methods
@@ -152,7 +152,7 @@ cargo near build
 cargo test --verbose
 
 # Deploy locally
-./deploy-local.sh
+./scripts/deploy-local.sh
 ```
 
 ### Contributing

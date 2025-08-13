@@ -57,7 +57,7 @@ cargo near build
 
 2. Deploy using the provided script:
 ```bash
-./deploy-wasm-testnet.sh <parent-account> <module-name>
+./scripts/deploy-wasm-testnet.sh <parent-account> <module-name>
 ```
 
 Or manually:
@@ -74,7 +74,7 @@ near call <account-id> new '{"owner": "<owner-id>", "router_contract": "<router-
 
 For local testing with NEAR Sandbox:
 ```bash
-./deploy-local.sh
+./scripts/deploy-local.sh
 ```
 
 ## Usage Examples

@@ -19,7 +19,7 @@ mod host_functions;
 mod message_translator;
 mod vm_executor;
 mod ibc_host_functions;
-mod wasm_runtime;
+pub mod wasm_runtime;
 
 // =============================================================================
 // Types
