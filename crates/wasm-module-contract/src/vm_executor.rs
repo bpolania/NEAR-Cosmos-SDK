@@ -81,8 +81,8 @@ impl VmExecutor {
         // 3. Call the instantiate export
         // 4. Handle the response
         
-        // For now, we simulate the execution
-        let response = self.simulate_wasm_execution("instantiate", &args)?;
+        // Execute with the actual WASM code
+        let response = self.execute_wasm_with_code(code, "instantiate", &args)?;
         
         // Store contract metadata
         let metadata_key = format!("{}:metadata", self.contract_addr);
@@ -124,8 +124,8 @@ impl VmExecutor {
             return Err(VmError::OutOfGas);
         }
         
-        // Execute the contract
-        let response = self.simulate_wasm_execution("execute", &args)?;
+        // Execute the contract with actual WASM code
+        let response = self.execute_wasm_with_code(code, "execute", &args)?;
         
         // Process submessages if any
         if !response.messages.is_empty() {
@@ -150,9 +150,20 @@ impl VmExecutor {
         ).map_err(|e| VmError::InvalidMessage(e))?;
         
         // Query is read-only, no state changes
-        let response = self.simulate_wasm_query("query", &args)?;
+        use crate::wasm_runtime::WasmRuntime;
         
-        Ok(response)
+        // Create runtime with contract-specific storage prefix
+        let storage_prefix = self.contract_addr.as_bytes().to_vec();
+        let mut runtime = WasmRuntime::new(storage_prefix);
+        
+        // Execute query using the runtime
+        let result = runtime.execute_cosmwasm(
+            code,
+            "query",
+            args.as_bytes()
+        ).map_err(|e| VmError::QueryFailed(e))?;
+        
+        Ok(result)
     }
     
     /// Migrate contract to new code
@@ -205,11 +216,56 @@ impl VmExecutor {
         Ok(response)
     }
     
-    /// Simulate WASM execution (placeholder for actual WASM execution)
-    /// In production, this would use NEAR's Wasmer to execute the actual WASM
+    /// Execute WASM with specific code
+    fn execute_wasm_with_code(&mut self, code: &[u8], entry_point: &str, args: &str) -> VmResult<CosmResponse> {
+        // Use the real WASM runtime for execution
+        use crate::wasm_runtime::WasmRuntime;
+        
+        // Create runtime with contract-specific storage prefix
+        let storage_prefix = self.contract_addr.as_bytes().to_vec();
+        let mut runtime = WasmRuntime::new(storage_prefix);
+        
+        // Execute using the runtime with the actual WASM code
+        let result = runtime.execute_cosmwasm(
+            code,
+            entry_point,
+            args.as_bytes()
+        ).map_err(|e| VmError::WasmExecutionFailed(e))?;
+        
+        // Parse the result as CosmResponse
+        let response: CosmResponse = serde_json::from_slice(&result)
+            .map_err(|e| VmError::WasmExecutionFailed(format!("Failed to parse response: {}", e)))?;
+        
+        Ok(response)
+    }
+    
+    /// Execute WASM using our runtime (legacy, for compatibility)
     fn simulate_wasm_execution(&mut self, entry_point: &str, args: &str) -> VmResult<CosmResponse> {
-        // This is where we would integrate with NEAR's Wasmer runtime
-        // For now, we return a simulated response based on the entry point
+        // Use the real WASM runtime for execution
+        use crate::wasm_runtime::WasmRuntime;
+        
+        // Create runtime with contract-specific storage prefix
+        let storage_prefix = self.contract_addr.as_bytes().to_vec();
+        let mut runtime = WasmRuntime::new(storage_prefix);
+        
+        // For now, we'll use empty WASM code as we're pattern-matching
+        // In production, this would be the actual CosmWasm bytecode
+        let wasm_code = b"\0asm\x01\x00\x00\x00"; // Minimal valid WASM
+        
+        // Execute using the runtime
+        let result = runtime.execute_cosmwasm(
+            wasm_code,
+            entry_point,
+            args.as_bytes()
+        ).map_err(|e| VmError::WasmExecutionFailed(e))?;
+        
+        // Parse the result as CosmResponse
+        let response: CosmResponse = serde_json::from_slice(&result)
+            .map_err(|e| VmError::WasmExecutionFailed(format!("Failed to parse response: {}", e)))?;
+        
+        return Ok(response);
+        
+        // Fallback to simulation if runtime fails
         
         match entry_point {
             "instantiate" => {
