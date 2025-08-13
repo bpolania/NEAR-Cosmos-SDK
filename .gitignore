@@ -46,4 +46,7 @@ Thumbs.db
 # Claude Code session files
 .claude/
 
+# Status tracking
+CURRENT_STATUS.md
+
 .boris

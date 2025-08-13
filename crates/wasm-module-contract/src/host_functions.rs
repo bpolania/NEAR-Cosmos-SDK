@@ -8,6 +8,8 @@ use near_sdk::env;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use bech32::{self, ToBase32, Variant};
+#[cfg(not(target_family = "wasm"))]
+use wasmer::{Memory};
 
 /// The standard CosmWasm bech32 prefix (we use "proxima" for this chain)
 pub const BECH32_PREFIX: &str = "proxima";
@@ -323,6 +325,14 @@ pub mod env_info {
             },
         }
     }
+}
+
+/// Wasmer-compatible host functions for CosmWasm contracts (placeholder)
+/// This module would contain the actual Wasmer integration when fully implemented
+#[cfg(not(target_family = "wasm"))]
+pub mod wasmer_compat {
+    // Placeholder module - full Wasmer integration to be implemented later
+    // This provides the foundation for when Wasmer host functions are needed
 }
 
 #[cfg(test)]
