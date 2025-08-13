@@ -31,6 +31,7 @@ bech32 = "0.9"
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 wasmer = { version = "3.1" }
 wasmer-wasi = { version = "3.1" }
+# Note: bech32 is already in main dependencies
 
 [dev-dependencies]
 near-sdk = { version = "5.1.0", features = ["unit-testing"] }

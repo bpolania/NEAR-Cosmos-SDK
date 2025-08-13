@@ -8,9 +8,10 @@ use near_sdk::env;
 use serde_json::Value;
 
 #[cfg(not(target_family = "wasm"))]
-use wasmer::{Function, Instance, Module, Store};
+use wasmer::Store;
 
 use crate::message_translator::Response as CosmResponse;
+use crate::wasmer_executor::WasmerExecutor;
 
 /// WASM Runtime that executes CosmWasm contracts using Wasmer (when available)
 pub struct WasmRuntime {
@@ -99,7 +100,7 @@ impl WasmRuntime {
         self.execute_with_fallback(wasm_code, entry_point, args)
     }
     
-    /// Execute WASM using Wasmer with CosmWasm host functions (simplified)
+    /// Execute WASM using Wasmer with CosmWasm host functions
     #[cfg(not(target_family = "wasm"))]
     fn execute_with_wasmer(
         &mut self,
@@ -107,14 +108,27 @@ impl WasmRuntime {
         entry_point: &str,
         args: &[u8],
     ) -> Result<Vec<u8>, String> {
-        // Simplified placeholder implementation for compilation
         env::log_str(&format!(
-            "Wasmer execution (placeholder): entry_point={}, wasm_size={}, args_size={}",
+            "Wasmer execution: entry_point={}, wasm_size={}, args_size={}",
             entry_point, wasm_code.len(), args.len()
         ));
         
-        // For now, always return an error to trigger fallback
-        Err("Wasmer execution not fully implemented yet".to_string())
+        // Create a new Wasmer executor
+        let mut executor = WasmerExecutor::new(self.host_functions.storage_prefix.clone());
+        
+        // Map CosmWasm entry points to their actual function names
+        let function_name = match entry_point {
+            "instantiate" => "instantiate",
+            "execute" => "execute",
+            "query" => "query",
+            "migrate" => "migrate",
+            "reply" => "reply",
+            "sudo" => "sudo",
+            _ => return Err(format!("Unknown entry point: {}", entry_point)),
+        };
+        
+        // Execute the WASM module with the specified function
+        executor.execute_wasm(wasm_code, function_name, args)
     }
     
     /// Execute using pattern matching fallback for known contract types

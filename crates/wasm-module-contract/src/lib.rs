@@ -20,6 +20,7 @@ mod message_translator;
 mod vm_executor;
 mod ibc_host_functions;
 pub mod wasm_runtime;
+mod wasmer_executor;
 
 // =============================================================================
 // Types

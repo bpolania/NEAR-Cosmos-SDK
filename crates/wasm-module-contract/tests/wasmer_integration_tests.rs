@@ -117,7 +117,12 @@ mod wasmer_tests {
         let mut runtime = WasmRuntime::new(b"test".to_vec());
         let wasm = create_minimal_wasm();
         
-        // Test CW20 transfer execution
+        // First instantiate the CW20 token with initial balances
+        let instantiate_msg = create_cw20_instantiate_msg();
+        let inst_result = runtime.execute_cosmwasm(&wasm, "instantiate", instantiate_msg.as_bytes());
+        assert!(inst_result.is_ok(), "Instantiation failed: {:?}", inst_result.err());
+        
+        // Now test CW20 transfer execution
         let transfer_msg = json!({
             "msg": {
                 "transfer": {
@@ -128,7 +133,7 @@ mod wasmer_tests {
         }).to_string();
         
         let result = runtime.execute_cosmwasm(&wasm, "execute", transfer_msg.as_bytes());
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Execution failed: {:?}", result.err());
         
         let response_bytes = result.unwrap();
         let response: serde_json::Value = serde_json::from_slice(&response_bytes).unwrap();
