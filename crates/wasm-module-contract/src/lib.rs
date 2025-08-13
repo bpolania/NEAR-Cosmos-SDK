@@ -17,6 +17,8 @@ use sha2::{Sha256, Digest};
 mod address;
 mod host_functions;
 mod message_translator;
+mod vm_executor;
+mod ibc_host_functions;
 
 // =============================================================================
 // Types
@@ -234,22 +236,43 @@ impl WasmModuleContract {
             address: contract_addr.clone(),
             code_id,
             creator: creator_cosmos,
-            admin,
-            label,
+            admin: admin.clone(),
+            label: label.clone(),
             created: env::block_height(),
         };
         
         self.contracts.insert(&contract_addr, &contract_info);
         
-        // Initialize contract state (mock for now)
-        let state_key = format!("{}:state", contract_addr);
-        self.contract_state.insert(&state_key, &msg.as_bytes().to_vec());
+        // Get the actual WASM code from contract_state
+        let code_key = format!("code:{}", code_id);
+        let code_bytes = self.contract_state.get(&code_key)
+            .expect("WASM code not found");
         
-        env::log_str(&format!("Instantiated contract at: {}", contract_addr));
-        
-        InstantiateResponse {
-            address: contract_addr,
-            data: Some(format!("Contract instantiated with message: {}", msg)),
+        // Use VM executor to instantiate the contract
+        let sender = env::predecessor_account_id();
+        match vm_executor::entry_points::instantiate_adapter(
+            code_bytes.clone(),
+            sender,
+            msg.clone(),
+            label.clone(),
+            admin.clone(),
+            contract_addr.clone(),
+        ) {
+            Ok(response_json) => {
+                // Store initial state
+                let state_key = format!("{}:state", contract_addr);
+                self.contract_state.insert(&state_key, &msg.as_bytes().to_vec());
+                
+                env::log_str(&format!("Successfully instantiated contract at: {}", contract_addr));
+                
+                InstantiateResponse {
+                    address: contract_addr,
+                    data: Some(response_json),
+                }
+            },
+            Err(e) => {
+                env::panic_str(&format!("Failed to instantiate contract: {}", e));
+            }
         }
     }
 
@@ -262,33 +285,66 @@ impl WasmModuleContract {
     ) -> ExecuteResponse {
         self.assert_authorized();
         
-        // Verify contract exists
-        let _contract_info = self.contracts.get(&contract_addr)
+        // Verify contract exists and get its code
+        let contract_info = self.contracts.get(&contract_addr)
             .expect("Contract does not exist");
         
-        // Mock execution - in a real implementation, this would run the WASM code
-        env::log_str(&format!("Executing contract {} with message: {}", contract_addr, msg));
+        let code_key = format!("code:{}", contract_info.code_id);
+        let code_bytes = self.contract_state.get(&code_key)
+            .expect("WASM code not found");
         
-        // Create mock events
-        let events = vec![
-            Event {
-                r#type: "wasm".to_string(),
-                attributes: vec![
-                    Attribute {
-                        key: "_contract_address".to_string(),
-                        value: contract_addr.clone(),
-                    },
-                    Attribute {
-                        key: "action".to_string(),
-                        value: "execute".to_string(),
-                    },
-                ],
+        // Use VM executor to execute the contract
+        let sender = env::predecessor_account_id();
+        match vm_executor::entry_points::execute_adapter(
+            code_bytes,
+            sender,
+            msg.clone(),
+            contract_addr.clone(),
+        ) {
+            Ok(response_json) => {
+                // Parse response to extract events
+                let events = if let Ok(response) = serde_json::from_str::<serde_json::Value>(&response_json) {
+                    if let Some(events_array) = response.get("events").and_then(|e| e.as_array()) {
+                        events_array.iter().filter_map(|event| {
+                            Some(Event {
+                                r#type: event.get("type")?.as_str()?.to_string(),
+                                attributes: vec![
+                                    Attribute {
+                                        key: "_contract_address".to_string(),
+                                        value: contract_addr.clone(),
+                                    },
+                                ],
+                            })
+                        }).collect()
+                    } else {
+                        vec![Event {
+                            r#type: "wasm".to_string(),
+                            attributes: vec![
+                                Attribute {
+                                    key: "_contract_address".to_string(),
+                                    value: contract_addr.clone(),
+                                },
+                                Attribute {
+                                    key: "action".to_string(),
+                                    value: "execute".to_string(),
+                                },
+                            ],
+                        }]
+                    }
+                } else {
+                    vec![]
+                };
+                
+                env::log_str(&format!("Successfully executed contract: {}", contract_addr));
+                
+                ExecuteResponse {
+                    data: Some(response_json),
+                    events,
+                }
             },
-        ];
-        
-        ExecuteResponse {
-            data: Some(format!("Executed: {}", msg)),
-            events,
+            Err(e) => {
+                env::panic_str(&format!("Failed to execute contract: {}", e));
+            }
         }
     }
 
@@ -298,12 +354,25 @@ impl WasmModuleContract {
         contract_addr: String,
         msg: String,
     ) -> String {
-        // Verify contract exists
-        let _contract_info = self.contracts.get(&contract_addr)
+        // Verify contract exists and get its code
+        let contract_info = self.contracts.get(&contract_addr)
             .expect("Contract does not exist");
         
-        // Mock query - in a real implementation, this would query the WASM contract
-        format!("{{\"query_result\": \"mocked response for: {}\"}}", msg)
+        let code_key = format!("code:{}", contract_info.code_id);
+        let code_bytes = self.contract_state.get(&code_key)
+            .expect("WASM code not found");
+        
+        // Use VM executor to query the contract
+        match vm_executor::entry_points::query_adapter(
+            code_bytes,
+            msg.clone(),
+            contract_addr.clone(),
+        ) {
+            Ok(response) => response,
+            Err(e) => {
+                env::panic_str(&format!("Failed to query contract: {}", e));
+            }
+        }
     }
 
     // =============================================================================
@@ -542,7 +611,7 @@ mod tests {
             None,
         );
         
-        assert!(instantiate_response.address.starts_with("contract1."));
+        assert!(instantiate_response.address.starts_with("proxima1"));
         assert_eq!(contract.next_instance_id, 2);
     }
 }

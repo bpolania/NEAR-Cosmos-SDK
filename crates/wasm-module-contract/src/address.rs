@@ -149,7 +149,7 @@ mod tests {
         let cosmos_addr = near_to_cosmos_address(&near_account, None);
         
         // Should start with the default prefix
-        assert!(cosmos_addr.starts_with("wasm1"));
+        assert!(cosmos_addr.starts_with("proxima1"));
         
         // Should be deterministic
         let cosmos_addr2 = near_to_cosmos_address(&near_account, None);
@@ -185,9 +185,10 @@ mod tests {
         let universal = UniversalAddress::from_string(near_addr).unwrap();
         assert!(matches!(universal, UniversalAddress::Near(_)));
         
-        // Test Cosmos address
-        let cosmos_addr = "wasm1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq93pkzk";
-        let universal = UniversalAddress::from_string(cosmos_addr).unwrap();
+        // Test Cosmos address - generate a valid one
+        let test_bytes = vec![0u8; 20];
+        let cosmos_addr = bech32_encode("proxima", &test_bytes);
+        let universal = UniversalAddress::from_string(&cosmos_addr).unwrap();
         assert!(matches!(universal, UniversalAddress::Cosmos(_)));
     }
     
