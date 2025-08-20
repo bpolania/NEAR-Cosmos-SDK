@@ -3,6 +3,7 @@
 
 pub mod config;
 pub mod chains;
+pub mod cosmwasm;
 pub mod keystore;
 pub mod relay;
 #[cfg(feature = "metrics")]
