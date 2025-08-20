@@ -13,6 +13,7 @@ use near_sdk::collections::{UnorderedMap, LookupMap};
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
 use sha2::{Sha256, Digest};
+use hex;
 
 mod address;
 
@@ -102,6 +103,33 @@ pub struct InstantiateResponse {
 pub struct ExecuteResponse {
     pub data: Option<String>,
     pub events: Vec<Event>,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct ExecutionResultInput {
+    pub data: Option<Vec<u8>>,
+    pub state_changes: Vec<StateChangeInput>,
+    pub events: Vec<ExecutionEvent>,
+    pub gas_used: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct StateChangeInput {
+    pub key: Vec<u8>,
+    pub value: Option<Vec<u8>>,
+    pub operation: StateOperation,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub enum StateOperation {
+    Set,
+    Remove,
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+pub struct ExecutionEvent {
+    pub event_type: String,
+    pub attributes: Vec<(String, String)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
@@ -302,6 +330,109 @@ impl WasmModuleContract {
         
         // Mock query - in a real implementation, this would query the WASM contract
         format!("{{\"query_result\": \"mocked response for: {}\"}}", msg)
+    }
+
+    /// Apply execution results from the relayer
+    /// This is called after the relayer has executed the WASM contract
+    pub fn apply_execution_result(
+        &mut self,
+        contract_addr: String,
+        execution_result: ExecutionResultInput,
+    ) -> ExecuteResponse {
+        // Verify the caller is authorized (should be a trusted relayer)
+        self.assert_relayer_authorized();
+        
+        // Verify contract exists
+        let _contract_info = self.contracts.get(&contract_addr)
+            .expect("Contract does not exist");
+        
+        // Apply state changes
+        for change in execution_result.state_changes {
+            let storage_key = format!("{}:{}", contract_addr, hex::encode(&change.key));
+            
+            match change.operation {
+                StateOperation::Set => {
+                    if let Some(value) = change.value {
+                        self.contract_state.insert(&storage_key, &value);
+                        env::log_str(&format!("State set: {} = {:?}", storage_key, value));
+                    }
+                }
+                StateOperation::Remove => {
+                    self.contract_state.remove(&storage_key);
+                    env::log_str(&format!("State removed: {}", storage_key));
+                }
+            }
+        }
+        
+        // Create events from execution result
+        let mut events = vec![
+            Event {
+                r#type: "wasm".to_string(),
+                attributes: vec![
+                    Attribute {
+                        key: "_contract_address".to_string(),
+                        value: contract_addr.clone(),
+                    },
+                    Attribute {
+                        key: "action".to_string(),
+                        value: "execute_via_relayer".to_string(),
+                    },
+                    Attribute {
+                        key: "gas_used".to_string(),
+                        value: execution_result.gas_used.to_string(),
+                    },
+                ],
+            },
+        ];
+        
+        // Add custom events from execution
+        for event in execution_result.events {
+            events.push(Event {
+                r#type: event.event_type,
+                attributes: event.attributes.into_iter().map(|(k, v)| {
+                    Attribute { key: k, value: v }
+                }).collect(),
+            });
+        }
+        
+        ExecuteResponse {
+            data: execution_result.data.map(|d| hex::encode(d)),
+            events,
+        }
+    }
+
+    /// Check if the caller is an authorized relayer
+    fn assert_relayer_authorized(&self) {
+        // For now, accept calls from owner or router
+        // In production, this should check a list of authorized relayers
+        let caller = env::predecessor_account_id();
+        if caller != self.owner && Some(caller.clone()) != self.router_contract {
+            // Check if caller is in a list of authorized relayers
+            // For testing, we'll allow any account with "relayer" in the name
+            if !caller.as_str().contains("relayer") {
+                env::panic_str("Unauthorized: caller is not an authorized relayer");
+            }
+        }
+    }
+
+    /// Get contract state value by key (for relayer to read state)
+    pub fn get_contract_state(&self, contract_addr: String, key: Vec<u8>) -> Option<Vec<u8>> {
+        let storage_key = format!("{}:{}", contract_addr, hex::encode(&key));
+        self.contract_state.get(&storage_key)
+    }
+
+    /// Get multiple contract state values (batch read for efficiency)
+    pub fn get_contract_state_batch(
+        &self,
+        contract_addr: String,
+        keys: Vec<Vec<u8>>,
+    ) -> Vec<Option<Vec<u8>>> {
+        keys.into_iter()
+            .map(|key| {
+                let storage_key = format!("{}:{}", contract_addr, hex::encode(&key));
+                self.contract_state.get(&storage_key)
+            })
+            .collect()
     }
 
     // =============================================================================
@@ -540,7 +671,7 @@ mod tests {
             None,
         );
         
-        assert!(instantiate_response.address.starts_with("contract1."));
+        assert!(instantiate_response.address.starts_with("proxima1"));
         assert_eq!(contract.next_instance_id, 2);
     }
 }

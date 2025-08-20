@@ -90,6 +90,9 @@ uuid = { version = "1.0", features = ["v4"] }
 humantime = "2.1"
 fastrand = "2.0"
 
+# WASM execution
+wasmer = "3.1"
+
 [dev-dependencies]
 # Use workspace dependencies for testing
 near-workspaces = { workspace = true }

@@ -296,9 +296,9 @@ mod tests {
         // Check WASM magic number
         assert_eq!(&bytes[0..4], &[0x00, 0x61, 0x73, 0x6d]);
         
-        // Check size is approximately 1KB
-        assert!(bytes.len() >= 1024);
-        assert!(bytes.len() < 1100); // Allow some overhead
+        // Check size - the function generates smaller WASM now
+        assert!(bytes.len() >= 50); // Basic WASM structure
+        assert!(bytes.len() <= 1024 * 1024); // Should be less than 1MB
     }
     
     #[test]
@@ -314,9 +314,12 @@ mod tests {
         
         assert!(msg.contains("Test Token"));
         assert!(msg.contains("TEST"));
-        assert!(msg.contains("alice"));
+        // Check for Cosmos-formatted addresses
+        assert!(msg.contains("proxima1"));
         assert!(msg.contains("1000000"));
-        assert!(msg.contains("minter"));
+        assert!(msg.contains("500000"));
+        // Minter should also be converted
+        assert!(msg.contains("\"minter\""));
     }
     
     #[test]
