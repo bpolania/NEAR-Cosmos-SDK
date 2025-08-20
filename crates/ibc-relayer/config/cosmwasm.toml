@@ -1,0 +1,22 @@
+# CosmWasm Relayer Configuration
+
+# NEAR RPC endpoint
+near_rpc_url = "https://rpc.testnet.near.org"
+
+# NEAR account that will submit results
+relayer_account_id = "cosmwasm-relayer.testnet"
+
+# Private key for the relayer account (in production, use secure key management)
+relayer_private_key = "ed25519:YOUR_PRIVATE_KEY_HERE"
+
+# Contract to monitor for CosmWasm requests
+wasm_module_contract = "wasm-module.cuteharbor3573.testnet"
+
+# Polling interval in milliseconds (5 seconds)
+polling_interval_ms = 5000
+
+# Maximum retries for failed submissions
+max_retries = 3
+
+# Retry delay in milliseconds (10 seconds)
+retry_delay_ms = 10000
