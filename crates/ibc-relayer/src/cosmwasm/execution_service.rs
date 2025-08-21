@@ -69,7 +69,7 @@ impl WasmerExecutionService {
         let gas_used = self.calculate_gas_used(&state_changes, &events);
         
         Ok(ExecutionResult {
-            data: result_data,
+            data: Some(result_data),
             state_changes,
             events,
             gas_used,

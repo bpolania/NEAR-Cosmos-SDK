@@ -16,7 +16,7 @@ use sha2::{Sha256, Digest};
 use hex;
 
 mod address;
-mod execution_queue;
+pub mod execution_queue;
 
 use execution_queue::{ExecutionRequest, ExecutionStatus, CosmWasmCoin};
 
@@ -88,6 +88,8 @@ pub struct WasmModuleContract {
     execution_queue: UnorderedMap<String, ExecutionRequest>,
     /// Last processed block height (for relayer queries)
     last_processed_height: u64,
+    /// Request counter for unique IDs
+    next_request_id: u64,
 }
 
 // =============================================================================
@@ -170,6 +172,7 @@ impl WasmModuleContract {
             max_code_size: 3 * 1024 * 1024, // 3MB
             execution_queue: UnorderedMap::new(b"q"),
             last_processed_height: 0,
+            next_request_id: 1,
         }
     }
 
@@ -303,7 +306,7 @@ impl WasmModuleContract {
         
         // Create execution request for the relayer
         let sender = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
-        let request = ExecutionRequest::new(
+        let mut request = ExecutionRequest::new(
             contract_addr.clone(),
             contract_info.code_id,
             "execute".to_string(),
@@ -312,6 +315,10 @@ impl WasmModuleContract {
             env::block_height(),
             env::block_timestamp(),
         );
+        
+        // Override request ID with unique counter
+        request.request_id = format!("exec_{}", self.next_request_id);
+        self.next_request_id += 1;
         
         let request_id = request.request_id.clone();
         self.execution_queue.insert(&request_id, &request);
@@ -468,11 +475,11 @@ impl WasmModuleContract {
     
     /// Get pending execution requests for the relayer
     pub fn get_pending_executions(&self, after_height: Option<u64>) -> Vec<ExecutionRequest> {
-        let min_height = after_height.unwrap_or(self.last_processed_height);
+        let min_height = after_height.unwrap_or(0);
         
         self.execution_queue.iter()
             .filter_map(|(_, request)| {
-                if request.status == ExecutionStatus::Pending && request.block_height > min_height {
+                if request.status == ExecutionStatus::Pending && request.block_height >= min_height {
                     Some(request)
                 } else {
                     None

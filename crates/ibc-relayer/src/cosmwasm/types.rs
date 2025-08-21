@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResult {
-    pub data: Vec<u8>,
+    pub data: Option<Vec<u8>>,
     pub state_changes: Vec<StateChange>,
     pub events: Vec<Event>,
     pub gas_used: u64,

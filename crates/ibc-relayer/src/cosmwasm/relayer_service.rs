@@ -13,9 +13,11 @@ use near_primitives::types::{BlockReference, FunctionArgs};
 use near_primitives::views::QueryRequest;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, debug};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use anyhow;
 
 use super::{WasmerExecutionService, StateManager};
-use super::types::{ExecutionResult, CosmWasmEnv};
+use super::types::{ExecutionResult, CosmWasmEnv, BlockInfo, ContractInfo};
 
 /// Configuration for the CosmWasm relayer service
 #[derive(Debug, Clone, Deserialize)]
@@ -73,6 +75,7 @@ pub enum RequestStatus {
 }
 
 /// Tracked execution request
+#[derive(Clone)]
 struct TrackedRequest {
     request: ExecutionRequest,
     status: RequestStatus,
@@ -87,16 +90,15 @@ pub struct CosmWasmRelayerService {
     execution_service: Arc<WasmerExecutionService>,
     pending_requests: Arc<RwLock<Vec<TrackedRequest>>>,
     request_sender: mpsc::Sender<ExecutionRequest>,
-    request_receiver: mpsc::Receiver<ExecutionRequest>,
 }
 
 impl CosmWasmRelayerService {
     /// Create a new CosmWasm relayer service
     pub fn new(config: CosmWasmRelayerConfig) -> Self {
         let near_client = JsonRpcClient::connect(&config.near_rpc_url);
-        let state_manager = Arc::new(StateManager::new());
+        let state_manager = Arc::new(StateManager::new(Arc::new(near_client.clone()), config.wasm_module_contract.parse().unwrap()));
         let execution_service = Arc::new(WasmerExecutionService::new(state_manager));
-        let (tx, rx) = mpsc::channel(100);
+        let (tx, _rx) = mpsc::channel(100);
         
         Self {
             config,
@@ -104,21 +106,22 @@ impl CosmWasmRelayerService {
             execution_service,
             pending_requests: Arc::new(RwLock::new(Vec::new())),
             request_sender: tx,
-            request_receiver: rx,
         }
     }
     
     /// Start the relayer service
-    pub async fn start(mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn start(self) -> anyhow::Result<()> {
         info!("🚀 Starting CosmWasm relayer service");
         info!("Monitoring contract: {}", self.config.wasm_module_contract);
         info!("Relayer account: {}", self.config.relayer_account_id);
         
+        let (execution_tx, execution_rx) = mpsc::channel::<ExecutionRequest>(100);
+        
         // Start monitoring task
-        let monitor_handle = self.spawn_monitor_task();
+        let monitor_handle = self.spawn_monitor_task(execution_tx);
         
         // Start execution worker
-        let execution_handle = self.spawn_execution_worker();
+        let execution_handle = self.spawn_execution_worker(execution_rx);
         
         // Start submission worker
         let submission_handle = self.spawn_submission_worker();
@@ -140,10 +143,9 @@ impl CosmWasmRelayerService {
     }
     
     /// Spawn the monitoring task
-    fn spawn_monitor_task(&self) -> tokio::task::JoinHandle<()> {
+    fn spawn_monitor_task(&self, sender: mpsc::Sender<ExecutionRequest>) -> tokio::task::JoinHandle<()> {
         let config = self.config.clone();
         let near_client = self.near_client.clone();
-        let sender = self.request_sender.clone();
         let pending = self.pending_requests.clone();
         
         tokio::spawn(async move {
@@ -188,10 +190,9 @@ impl CosmWasmRelayerService {
     }
     
     /// Spawn the execution worker
-    fn spawn_execution_worker(&mut self) -> tokio::task::JoinHandle<()> {
+    fn spawn_execution_worker(&self, mut receiver: mpsc::Receiver<ExecutionRequest>) -> tokio::task::JoinHandle<()> {
         let execution_service = self.execution_service.clone();
         let pending = self.pending_requests.clone();
-        let mut receiver = self.request_receiver.clone();
         let config = self.config.clone();
         let near_client = self.near_client.clone();
         
@@ -270,7 +271,7 @@ impl CosmWasmRelayerService {
                     let pending_list = pending.read().await;
                     pending_list.iter()
                         .filter(|t| t.status == RequestStatus::Executed && t.result.is_some())
-                        .cloned()
+                        .map(|t| t.clone())
                         .collect()
                 };
                 
@@ -318,7 +319,7 @@ impl CosmWasmRelayerService {
         client: &JsonRpcClient,
         contract_id: &str,
         last_height: u64,
-    ) -> Result<Vec<ExecutionRequest>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<ExecutionRequest>, Box<dyn std::error::Error + Send + Sync>> {
         // This is a placeholder - in reality, we'd query contract events or state
         // For now, we'll query a hypothetical view method
         let request = methods::query::RpcQueryRequest {
@@ -345,7 +346,7 @@ impl CosmWasmRelayerService {
         client: &JsonRpcClient,
         contract_id: &str,
         code_id: u64,
-    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
         let request = methods::query::RpcQueryRequest {
             block_reference: BlockReference::latest(),
             request: QueryRequest::CallFunction {
@@ -367,11 +368,17 @@ impl CosmWasmRelayerService {
     /// Create CosmWasm environment from request
     fn create_cosmwasm_env(request: &ExecutionRequest) -> CosmWasmEnv {
         CosmWasmEnv {
-            block_height: request.block_height,
-            block_time: request.timestamp,
-            chain_id: "near-cosmwasm".to_string(),
-            contract_address: request.contract_address.clone(),
-            sender: request.sender.clone(),
+            block: BlockInfo {
+                height: request.block_height,
+                time: request.timestamp,
+                chain_id: "near-cosmwasm".to_string(),
+            },
+            contract: ContractInfo {
+                address: request.contract_address.clone(),
+                creator: Some(request.sender.clone()),
+                admin: None,
+            },
+            transaction: None,
         }
     }
     
@@ -381,23 +388,34 @@ impl CosmWasmRelayerService {
         config: &CosmWasmRelayerConfig,
         request: &ExecutionRequest,
         result: &ExecutionResult,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Create the execution result input
         let result_input = serde_json::json!({
             "contract_addr": request.contract_address,
             "execution_result": {
-                "data": result.data.as_ref().map(|d| base64::encode(d)),
+                "data": result.data.as_ref().map(|d| BASE64.encode(d)),
                 "state_changes": result.state_changes.iter().map(|sc| {
-                    serde_json::json!({
-                        "key": base64::encode(&sc.key),
-                        "value": sc.value.as_ref().map(|v| base64::encode(v)),
-                        "operation": if sc.value.is_some() { "Set" } else { "Remove" }
-                    })
+                    match sc {
+                        super::types::StateChange::Set { key, value } => {
+                            serde_json::json!({
+                                "key": BASE64.encode(key),
+                                "value": Some(BASE64.encode(value)),
+                                "operation": "Set"
+                            })
+                        },
+                        super::types::StateChange::Remove { key } => {
+                            serde_json::json!({
+                                "key": BASE64.encode(key),
+                                "value": None::<String>,
+                                "operation": "Remove"
+                            })
+                        }
+                    }
                 }).collect::<Vec<_>>(),
                 "events": result.events.iter().map(|e| {
                     serde_json::json!({
-                        "event_type": e.r#type,
-                        "attributes": e.attributes.iter().map(|a| [&a.key, &a.value]).collect::<Vec<_>>()
+                        "event_type": e.typ,
+                        "attributes": e.attributes.iter().map(|(k, v)| [k, v]).collect::<Vec<_>>()
                     })
                 }).collect::<Vec<_>>(),
                 "gas_used": result.gas_used,
