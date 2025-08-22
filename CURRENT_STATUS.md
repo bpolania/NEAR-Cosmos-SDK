@@ -4,11 +4,11 @@
 **Branch:** `feature/cosmwasm-vm-compatibility`  
 **Working Directory:** `/Users/bpolania/Documents/GitHub/NEAR-Cosmos-SDK/crates/wasm-module-contract`
 
-## 🎯 Project Overview
+## Project Overview
 
 This project implements a complete Cosmos SDK compatibility layer on NEAR Protocol, with a focus on CosmWasm VM functionality. The architecture is modular, allowing both monolithic and modular deployments.
 
-## ✅ Recently Completed Work
+## Recently Completed Work
 
 ### 1. CosmWasm VM Implementation (COMPLETED)
 
@@ -109,7 +109,7 @@ Updated all README files with corrected script paths:
 
 **Clean Status:** No uncommitted changes, all work properly committed without emojis or Claude attribution.
 
-## 🏗️ Current Architecture
+## Current Architecture
 
 ### Modular Design
 ```
@@ -141,9 +141,9 @@ Updated all README files with corrected script paths:
 - WASM Module: `wasm.cosmos-sdk-demo-1754812961.testnet` 
 - Explorer: https://explorer.testnet.near.org/accounts/wasm.cosmos-sdk-demo-1754812961.testnet
 
-## 🔄 Current Implementation Status
+## Current Implementation Status
 
-### ✅ COMPLETED
+### COMPLETED
 1. **Pattern-Matching WASM Runtime** - Full implementation for CW20, CW721, CW1
 2. **IBC Infrastructure** - Complete ICS protocol implementation
 3. **VM Executor Integration** - Real WASM execution pipeline
@@ -151,7 +151,7 @@ Updated all README files with corrected script paths:
 5. **Script Organization** - All scripts in proper folders
 6. **Documentation** - Updated READMEs with correct paths
 
-### 🔄 IN PROGRESS / NEXT STEPS
+### IN PROGRESS / NEXT STEPS
 
 #### 1. Real Wasmer Integration (HIGH PRIORITY)
 **Current State:** Using pattern-matching simulation  
@@ -217,7 +217,7 @@ pub fn execute_with_wasmer(&mut self, wasm_code: &[u8], entry_point: &str, args:
 
 **Improvement:** Implement view-specific optimizations
 
-## 🧪 Testing Strategy
+## Testing Strategy
 
 ### Local Testing (NEAR Sandbox)
 ```bash
@@ -249,7 +249,7 @@ cargo test vm_runtime
 cargo test integration
 ```
 
-## 🔧 Development Environment
+## Development Environment
 
 ### Prerequisites
 - Rust 1.86.0+ with `wasm32-unknown-unknown` target
@@ -291,7 +291,7 @@ cargo test
 - `Cargo.toml` - Dependencies and build configuration
 - `README.md` - Module documentation
 
-## 🚨 Known Issues & Limitations
+## Known Issues & Limitations
 
 1. **View Method Restrictions**
    - `env::prepaid_gas()` not allowed in view methods
@@ -308,7 +308,7 @@ cargo test
    - **Solution:** Use contract owner for store_code operations
    - **Location:** All test scripts use `wasm.test.near` as owner
 
-## 🎯 Immediate Next Steps (Priority Order)
+## Immediate Next Steps (Priority Order)
 
 1. **Implement Real Wasmer Integration**
    - Add wasmer dependencies to Cargo.toml
@@ -337,7 +337,7 @@ cargo test
 - **NEAR Docs:** https://docs.near.org/
 - **CosmWasm Docs:** https://docs.cosmwasm.com/
 
-## 🔄 How to Resume Work
+## How to Resume Work
 
 1. **Navigate to working directory:**
    ```bash

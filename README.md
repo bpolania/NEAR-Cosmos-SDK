@@ -11,26 +11,26 @@
 
 Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC (Inter-Blockchain Communication) infrastructure, including a production-ready relayer for cross-chain communication between NEAR and Cosmos chains.
 
-## 🎯 Current Release
+## Current Release
 
 **Version 0.9.0-beta** represents a major milestone - the first production-ready beta release with complete IBC infrastructure:
 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
-| **Smart Contract** | 0.9.0-beta | ✅ Production Ready | 226+ tests passing |
-| **IBC Relayer** | 0.9.0-beta | ✅ Production Ready | 23+ tests passing |
-| **Overall System** | 0.9.0-beta | ✅ Production Ready | **226+ total tests** |
-| **Documentation** | 0.9.0-beta | ✅ Production Ready | **7 comprehensive guides** |
+| **Smart Contract** | 0.9.0-beta | Production Ready | 226+ tests passing |
+| **IBC Relayer** | 0.9.0-beta | Production Ready | 23+ tests passing |
+| **Overall System** | 0.9.0-beta | Production Ready | **226+ total tests** |
+| **Documentation** | 0.9.0-beta | Production Ready | **7 comprehensive guides** |
 
 **Key Achievements:**
-- 🚀 **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
-- 🔒 **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
-- 🌐 **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
-- 📊 **Comprehensive Testing**: 226+ tests with 100% success rate across all components
-- 🛠️ **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
-- ✅ **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
-- 🎯 **Public API Complete**: Cosmos SDK RPC-compatible interface for transaction broadcasting and management
-- 📚 **Complete Documentation**: Enterprise-grade documentation suite with multi-language integration examples
+- **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
+- **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
+- **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
+- **Comprehensive Testing**: 226+ tests with 100% success rate across all components
+- **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
+- **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
+- **Public API Complete**: Cosmos SDK RPC-compatible interface for transaction broadcasting and management
+- **Complete Documentation**: Enterprise-grade documentation suite with multi-language integration examples
 
 ## Overview
 
@@ -50,25 +50,25 @@ All persistent state lives in NEAR's key-value store, namespaced by byte-prefixe
 
 ## Version History & Changelog
 
-### Version 0.9.0-beta (2025-08-05) - CosmWasm Compatibility Release 🌟
+### Version 0.9.0-beta (2025-08-05) - CosmWasm Compatibility Release
 
 **Latest Major Feature - CosmWasm Runtime Compatibility:**
-- ✅ **CosmWasm API Layer**: Complete implementation of CosmWasm standard types, storage, and cryptographic APIs
-- ✅ **Contract Migration Support**: Existing CosmWasm contracts can run on Proxima with minimal changes
-- ✅ **Storage Compatibility**: Range queries, prefix iterations, and efficient key management
-- ✅ **Memory Management**: Bridge between CosmWasm allocation model and NEAR's register system
-- ✅ **Response Processing**: Full translation of CosmWasm responses to NEAR actions and events
-- ✅ **Ecosystem Access**: Direct access to hundreds of proven, audited CosmWasm contracts
+- **CosmWasm API Layer**: Complete implementation of CosmWasm standard types, storage, and cryptographic APIs
+- **Contract Migration Support**: Existing CosmWasm contracts can run on Proxima with minimal changes
+- **Storage Compatibility**: Range queries, prefix iterations, and efficient key management
+- **Memory Management**: Bridge between CosmWasm allocation model and NEAR's register system
+- **Response Processing**: Full translation of CosmWasm responses to NEAR actions and events
+- **Ecosystem Access**: Direct access to hundreds of proven, audited CosmWasm contracts
 
 **Previous Major Features Completed:**
-- ✅ **Complete IBC Infrastructure**: Full implementation of ICS-07 (Light Client), ICS-03 (Connection), ICS-04 (Channel), and ICS-20 (Token Transfer)
-- ✅ **Production IBC Relayer**: Full-featured relayer with packet scanning, proof generation, timeout detection, and bidirectional relay
-- ✅ **Local Development Environment**: Docker-based wasmd testnet with automated setup and configuration
-- ✅ **Comprehensive Testing**: 226+ tests passing across all components with full integration coverage
-- ✅ **Secure Keystore**: AES-256-GCM encrypted key management with secp256k1 (Cosmos) and ed25519 (NEAR) support
-- ✅ **Rate Limit Handling**: Robust error handling with exponential backoff for external API rate limits
-- ✅ **Testnet Deployment**: Live infrastructure deployed on NEAR testnet with automated deployment scripts
-- ✅ **Cross-Chain Key Management**: Fixed testnet key format compatibility and environment variable isolation
+- **Complete IBC Infrastructure**: Full implementation of ICS-07 (Light Client), ICS-03 (Connection), ICS-04 (Channel), and ICS-20 (Token Transfer)
+- **Production IBC Relayer**: Full-featured relayer with packet scanning, proof generation, timeout detection, and bidirectional relay
+- **Local Development Environment**: Docker-based wasmd testnet with automated setup and configuration
+- **Comprehensive Testing**: 226+ tests passing across all components with full integration coverage
+- **Secure Keystore**: AES-256-GCM encrypted key management with secp256k1 (Cosmos) and ed25519 (NEAR) support
+- **Rate Limit Handling**: Robust error handling with exponential backoff for external API rate limits
+- **Testnet Deployment**: Live infrastructure deployed on NEAR testnet with automated deployment scripts
+- **Cross-Chain Key Management**: Fixed testnet key format compatibility and environment variable isolation
 
 **Core Components:**
 - **Smart Contract**: Unified Cosmos SDK runtime with Bank, Staking, Governance, full IBC stack, and CosmWasm compatibility
@@ -468,29 +468,29 @@ The codebase is structured to mirror Cosmos SDK patterns while adapting to NEAR'
 
 ## Current Status
 
-### 🚀 **Version 0.9.0-beta - Production Ready Beta**
+### **Version 0.9.0-beta - Production Ready Beta**
 
 Proxima has reached production readiness with complete IBC infrastructure:
 
-**✅ Core Infrastructure (100% Complete):**
+**Core Infrastructure (100% Complete):**
 - **Cosmos SDK Modules**: Bank, Staking, Governance modules fully operational
 - **IBC Stack**: Complete implementation of ICS-07, ICS-03, ICS-04, and ICS-20 protocols
 - **Production Relayer**: Full-featured packet relay with timeout detection and bidirectional support
 - **Security**: VSA-2022-103 patches, AES-256-GCM encryption, comprehensive input validation
 
-**✅ Testing & Quality Assurance (100% Complete):**
+**Testing & Quality Assurance (100% Complete):**
 - **322 Tests Passing**: All unit, integration, and live testnet tests successful
 - **Network Resilience**: Rate limiting, exponential backoff, and error recovery implemented
 - **Thread Safety**: All Send + Sync trait bounds resolved for production deployment
 - **Security Validation**: Complete security audit with vulnerability patches applied
 
-**✅ Production Deployment (100% Complete):**
+**Production Deployment (100% Complete):**
 - **Live Testnet**: `cosmos-sdk-demo.testnet` with full IBC infrastructure
 - **IBC Infrastructure**: Client, Connection, and Channel established and operational
 - **Automated Scripts**: Complete deployment automation with validation
 - **Monitoring**: Prometheus metrics and health checking systems
 
-### 🔄 **Future Roadmap (v1.1.0+)**
+### **Future Roadmap (v1.1.0+)**
 
 **Medium Priority Enhancements:**
 - **Light Client Updates**: Automatic header submission and client synchronization
@@ -504,7 +504,7 @@ Proxima has reached production readiness with complete IBC infrastructure:
 - **Governance Integration**: Cross-chain governance and parameter updates
 - **DeFi Primitives**: Cross-chain DeFi protocols and liquidity management
 
-### 🎯 **Production Status Summary**
+### **Production Status Summary**
 
 Proxima v0.9.0-beta provides a **complete, production-ready IBC infrastructure** enabling:
 - **Cross-chain token transfers** between NEAR and Cosmos chains
@@ -533,12 +533,12 @@ Proxima/
 A production-ready IBC relayer that bridges NEAR and Cosmos chains:
 
 #### Architecture
-- **NEAR Chain Integration**: ✅ **IMPLEMENTED** - Direct integration with deployed `cosmos-sdk-demo.testnet` contract
-- **Cosmos Chain Support**: 🏗️ **IN PROGRESS** - Tendermint RPC integration framework ready
+- **NEAR Chain Integration**: **IMPLEMENTED** - Direct integration with deployed `cosmos-sdk-demo.testnet` contract
+- **Cosmos Chain Support**: **IN PROGRESS** - Tendermint RPC integration framework ready
 - **Event-Driven Engine**: Packet detection and relay state machine with comprehensive tracking
 - **Async Chain Abstraction**: Unified `Chain` trait supporting any blockchain with IBC operations
-- **Configuration System**: ✅ **COMPLETE** - Flexible TOML-based multi-chain configuration
-- **Metrics & Monitoring**: ✅ **COMPLETE** - Prometheus metrics and health checking
+- **Configuration System**: **COMPLETE** - Flexible TOML-based multi-chain configuration
+- **Metrics & Monitoring**: **COMPLETE** - Prometheus metrics and health checking
 
 #### Key Features Implemented
 - **NearChain**: Full async implementation with packet queries and event monitoring
@@ -577,22 +577,22 @@ cargo run -- status
 ```
 
 #### Implementation Status
-**NEAR Chain Integration**: ✅ **COMPLETE**
+**NEAR Chain Integration**: **COMPLETE**
 - Fully implemented `NearChain` with async trait methods
 
-**Handshake Automation Framework**: ✅ **COMPLETE**
+**Handshake Automation Framework**: **COMPLETE**
 - Fixed thread safety issues with Send + Sync trait bounds
 - All 10 handshake automation tests passing
 - Connection and channel handshake coordination fully functional
 - Production-ready error handling and state management
 
-**IBC Infrastructure Deployment**: ✅ **COMPLETE**
+**IBC Infrastructure Deployment**: **COMPLETE**
 - IBC Client `07-tendermint-0` deployed on NEAR testnet
 - IBC Connection `connection-0` established in INIT state
 - IBC Channel `channel-0` created for token transfers
 - Automated deployment scripts with comprehensive validation
 
-**Test Coverage**: ✅ **COMPREHENSIVE**
+**Test Coverage**: **COMPREHENSIVE**
 - 168+ tests across all components
 - Real NEAR testnet integration testing
 - Mock chain implementations for isolated testing
@@ -603,7 +603,7 @@ cargo run -- status
 - Event monitoring and transaction submission framework
 - Comprehensive test coverage and error handling
 
-**NEAR State Proof Generation**: ✅ **COMPLETE**
+**NEAR State Proof Generation**: **COMPLETE**
 - Real NEAR blockchain state proof generation for IBC packet verification
 - Production-ready `NearProofGenerator` with cryptographic state proofs
 - Support for packet commitment, acknowledgment, and timeout proofs
@@ -611,7 +611,7 @@ cargo run -- status
 - Integration with NEAR's merkle proof system for tamper-proof verification
 - Resolved NEAR dependency version conflicts (v0.30.3 compatibility)
 
-**Cosmos Chain Integration**: ✅ **COMPLETE** 🆕
+**Cosmos Chain Integration**: **COMPLETE**
 - Enhanced `CosmosChain` implementation with full Tendermint RPC integration
 - Production-ready transaction building with proper Cosmos SDK structure
 - IBC transaction methods: `submit_recv_packet_tx`, `submit_ack_packet_tx`, `submit_timeout_packet_tx`
@@ -619,14 +619,14 @@ cargo run -- status
 - Real-time event monitoring and parsing capabilities
 - Health checks and connectivity verification with live Cosmos networks
 
-**Enhanced Inter-Chain Relay Processing**: ✅ **COMPLETE** 🆕
+**Enhanced Inter-Chain Relay Processing**: **COMPLETE**
 - Specialized NEAR→Cosmos packet processing with state machine tracking
 - Complete packet lifecycle: Detection → Proof Generation → Submission → Confirmation
 - Enhanced packet processor with bidirectional relay capabilities
 - Real-time event monitoring system for both NEAR and Cosmos chains
 - Comprehensive error recovery and retry mechanisms
 
-**Secure Keystore Management**: ✅ **COMPLETE** 🆕  
+**Secure Keystore Management**: **COMPLETE**  
 - **Production Keystore**: Complete encrypted key management system with AES-256-GCM encryption
 - **Dual Cryptography Support**: secp256k1 for Cosmos chains, ed25519 for NEAR
 - **CLI Tools**: Key addition, export, import, and management utilities (`cargo run --bin key-manager`)
@@ -752,11 +752,11 @@ For more detailed information, see the docker README and project changelog.
 - **Network:** NEAR Testnet
 
 **Deployed Features:**
-- ✅ **Complete Cosmos SDK Modules**: Bank, Staking, Governance
-- ✅ **Full IBC Stack**: Client (ICS-07), Connection (ICS-03), Channel (ICS-04)
-- ✅ **Multi-Store Proof Verification**: Cross-chain state queries
-- ✅ **ICS-20 Token Transfer**: Cross-chain fungible token transfers 🆕
-- ✅ **60+ Tests Passing**: Comprehensive validation including live testnet tests
+- **Complete Cosmos SDK Modules**: Bank, Staking, Governance
+- **Full IBC Stack**: Client (ICS-07), Connection (ICS-03), Channel (ICS-04)
+- **Multi-Store Proof Verification**: Cross-chain state queries
+- **ICS-20 Token Transfer**: Cross-chain fungible token transfers
+- **60+ Tests Passing**: Comprehensive validation including live testnet tests
 
 **Available APIs:**
 - **Core Modules**: 15+ functions for bank, staking, governance operations
@@ -769,21 +769,21 @@ The unified contract provides a complete Cosmos SDK runtime on NEAR with full cr
 
 ## Testnet Deployment
 
-### Current IBC Infrastructure Status ✅
+### Current IBC Infrastructure Status
 
 The IBC relayer has successfully established the foundational infrastructure on NEAR testnet:
 
-**✅ IBC Client Created**: `07-tendermint-0`
+**IBC Client Created**: `07-tendermint-0`
 - Light client for Cosmos provider chain verification
 - Successfully validates Tendermint headers and consensus states
 - Ready for cross-chain proof verification
 
-**✅ IBC Connection Established**: `connection-0`
+**IBC Connection Established**: `connection-0`
 - Connection between NEAR and Cosmos provider testnet
 - State: `Init` (handshake ready for completion)
 - Proper counterparty configuration with IBC prefix
 
-**✅ IBC Channel Created**: `channel-0` 
+**IBC Channel Created**: `channel-0` 
 - Transfer channel for ICS-20 token transfers
 - Port: `transfer`, Version: `ics20-1`, Order: `Unordered`
 - State: `Init` (ready for channel handshake completion)
@@ -848,14 +848,14 @@ NEAR contracts run in WebAssembly and cannot execute nested WASM modules like Wa
 
 ### Current Implementation Status
 
-#### ✅ **Completed Components**
+#### **Completed Components**
 1. **Execution Queue System**: NEAR contract queues CosmWasm execution requests instead of immediate execution
 2. **Off-Chain Relayer Service**: Monitors NEAR for requests, executes via Wasmer, submits signed results
 3. **Transaction Signing**: Full NEAR transaction signing with secure key management
 4. **State Synchronization**: Bidirectional state management between relayer and NEAR
 5. **Test Coverage**: 28+ tests passing including execution queue and relayer integration tests
 
-#### 🎯 **What You Can Do Now**
+#### **What You Can Do Now**
 ```bash
 # Deploy CosmWasm contracts (e.g., CW20 tokens)
 near call wasm-module.test.near store_code '{"wasm": "<base64>"}' --accountId user.near
@@ -884,7 +884,7 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 - **Optimistic Rollups**: Challenge period with fraud proofs
 - **Slashing Mechanisms**: Penalize incorrect execution submissions
 
-### ⚡ **Performance Optimizations**
+### **Performance Optimizations**
 - **Batch Processing**: Execute multiple requests in single operation
 - **Parallel Execution**: Process independent contracts simultaneously
 - **State Compression**: Merkle tree commitments and IPFS integration
@@ -896,13 +896,13 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 - **Multi-Chain Router**: Optimal chain routing for transactions
 - **Universal Addresses**: Chain-agnostic address system
 
-### 📦 **Additional Modules**
+### **Additional Modules**
 - **Full IBC Protocol**: Complete IBC relayer network implementation
 - **Staking Module**: Proof-of-stake for relayer network
 - **Governance Module**: On-chain proposals and parameter updates
 - **NFT Support (CW721)**: Full NFT standard with marketplace
 
-### 🛠️ **Developer Experience**
+### **Developer Experience**
 - **SDK Libraries**: JavaScript, Python, Rust, Go SDKs
 - **IDE Plugins**: VS Code extension for NEAR-Cosmos development
 - **Contract Templates**: Ready-to-deploy DeFi primitives
@@ -914,7 +914,7 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 - **MEV Protection**: Fair ordering and front-running prevention
 - **Liquidity Mining**: Incentivize cross-chain liquidity
 
-### 🎯 **Implementation Priorities**
+### **Implementation Priorities**
 
 **Phase 1 (Next 1-2 months)**:
 - Multi-relayer consensus mechanism
@@ -938,14 +938,14 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 
 Proxima has evolved into a **comprehensive Cosmos SDK implementation on NEAR** with:
 
-✅ **Working Today**:
+**Working Today**:
 - Full Cosmos SDK modules (Bank, Staking, Governance)
 - Complete IBC infrastructure for cross-chain communication
 - CosmWasm contract execution via off-chain relayer
 - CW20 token deployments and transfers
 - Secure transaction signing and state management
 
-🚀 **Ready for Development**:
+**Ready for Development**:
 - Deploy and execute any CosmWasm contract
 - Build cross-chain DeFi applications
 - Test IBC token transfers

@@ -19,7 +19,7 @@ Performance optimization in Proxima involves multiple layers:
 #### Efficient State Storage
 
 ```rust
-// ❌ Inefficient: Storing entire transaction history
+// Inefficient: Storing entire transaction history
 #[near_bindgen]
 impl CosmosContract {
     pub fn store_transaction(&mut self, tx_hash: String, tx_data: Vec<u8>) {
@@ -27,7 +27,7 @@ impl CosmosContract {
     }
 }
 
-// ✅ Efficient: Store only essential transaction metadata
+// Efficient: Store only essential transaction metadata
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TxMetadata {
     pub block_height: u64,
@@ -52,27 +52,27 @@ use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct CosmosContract {
-    // ✅ Use LookupMap for O(1) access without iteration needs
+    // Use LookupMap for O(1) access without iteration needs
     pub accounts: LookupMap<String, CosmosAccount>,
     
-    // ✅ Use UnorderedMap when you need to iterate occasionally
+    // Use UnorderedMap when you need to iterate occasionally
     pub validators: UnorderedMap<String, ValidatorInfo>,
     
-    // ✅ Use Vector for ordered data with frequent appends
+    // Use Vector for ordered data with frequent appends
     pub recent_transactions: Vector<String>,
     
-    // ❌ Avoid HashMap/BTreeMap for persistent state (not gas-efficient)
+    // Avoid HashMap/BTreeMap for persistent state (not gas-efficient)
 }
 
 impl CosmosContract {
-    // ✅ Batch operations to reduce storage calls
+    // Batch operations to reduce storage calls
     pub fn batch_update_accounts(&mut self, updates: Vec<(String, CosmosAccount)>) {
         for (address, account) in updates {
             self.accounts.insert(&address, &account);
         }
     }
     
-    // ✅ Use views for read-only operations
+    // Use views for read-only operations
     pub fn get_account_batch(&self, addresses: Vec<String>) -> Vec<Option<CosmosAccount>> {
         addresses.iter()
             .map(|addr| self.accounts.get(addr))
@@ -89,7 +89,7 @@ impl CosmosContract {
 use near_sdk::env;
 
 impl SignatureVerifier {
-    // ✅ Cache signature verification results for repeated signatures
+    // Cache signature verification results for repeated signatures
     pub fn verify_with_cache(&mut self, signature: &[u8], message: &[u8], public_key: &[u8]) -> Result<bool, String> {
         let cache_key = self.compute_cache_key(signature, message);
         

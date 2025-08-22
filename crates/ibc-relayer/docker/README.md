@@ -123,11 +123,11 @@ docker-compose down -v
 
 ## Benefits Over Public Testnets
 
-✅ **Reliability**: No external dependencies, always available
-✅ **Speed**: Fast startup, no network latency
-✅ **Control**: Full control over accounts, balances, timing
-✅ **Isolation**: Tests don't interfere with each other
-✅ **CI/CD**: Perfect for automated testing pipelines
-✅ **Cost**: No need for testnet tokens or faucets
+**Reliability**: No external dependencies, always available
+**Speed**: Fast startup, no network latency
+**Control**: Full control over accounts, balances, timing
+**Isolation**: Tests don't interfere with each other
+**CI/CD**: Perfect for automated testing pipelines
+**Cost**: No need for testnet tokens or faucets
 
 This local testnet approach provides a robust foundation for developing and testing IBC functionality without the uncertainty of external testnet availability.

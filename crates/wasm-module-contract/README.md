@@ -154,13 +154,13 @@ cargo test --test router_integration_tests
 
 ### Test Coverage
 
-- ✅ Store code with various permission levels
-- ✅ Instantiate contracts with initialization
-- ✅ Execute contract methods
-- ✅ Query contract state
-- ✅ Contract migration
-- ✅ Permission updates
-- ✅ Router integration
+- Store code with various permission levels
+- Instantiate contracts with initialization
+- Execute contract methods
+- Query contract state
+- Contract migration
+- Permission updates
+- Router integration
 
 ## Architecture
 
