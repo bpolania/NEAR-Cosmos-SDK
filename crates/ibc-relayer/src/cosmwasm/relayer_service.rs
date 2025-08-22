@@ -9,8 +9,10 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::time;
 use near_jsonrpc_client::{JsonRpcClient, methods};
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
-use near_primitives::types::{BlockReference, FunctionArgs};
+use near_primitives::types::{BlockReference, FunctionArgs, AccountId as NearAccountId};
 use near_primitives::views::QueryRequest;
+use near_primitives::transaction::{Action, FunctionCallAction, Transaction, TransactionV0, SignedTransaction};
+use near_crypto::{InMemorySigner, SecretKey};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn, error, debug};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -29,6 +31,10 @@ pub struct CosmWasmRelayerConfig {
     pub relayer_account_id: String,
     
     /// Private key for the relayer account
+    /// Can be:
+    /// - Direct key string (for testing): "ed25519:..."
+    /// - File path: "file:/path/to/key.json"
+    /// - Environment variable: "env:RELAYER_KEY"
     pub relayer_private_key: String,
     
     /// Contract to monitor for CosmWasm requests
@@ -90,6 +96,33 @@ pub struct CosmWasmRelayerService {
     execution_service: Arc<WasmerExecutionService>,
     pending_requests: Arc<RwLock<Vec<TrackedRequest>>>,
     request_sender: mpsc::Sender<ExecutionRequest>,
+}
+
+impl CosmWasmRelayerConfig {
+    /// Load the private key based on the configuration
+    pub fn load_private_key(&self) -> Result<SecretKey, Box<dyn std::error::Error + Send + Sync>> {
+        let key_str = &self.relayer_private_key;
+        
+        if key_str.starts_with("file:") {
+            // Load from file
+            let path = &key_str[5..];
+            let key_data = std::fs::read_to_string(path)
+                .map_err(|e| format!("Failed to read key file {}: {}", path, e))?;
+            key_data.trim().parse()
+                .map_err(|e| format!("Failed to parse key from file: {:?}", e).into())
+        } else if key_str.starts_with("env:") {
+            // Load from environment variable
+            let var_name = &key_str[4..];
+            let key_data = std::env::var(var_name)
+                .map_err(|e| format!("Failed to read env var {}: {}", var_name, e))?;
+            key_data.parse()
+                .map_err(|e| format!("Failed to parse key from env: {:?}", e).into())
+        } else {
+            // Direct key string
+            key_str.parse()
+                .map_err(|e| format!("Failed to parse key: {:?}", e).into())
+        }
+    }
 }
 
 impl CosmWasmRelayerService {
@@ -422,11 +455,86 @@ impl CosmWasmRelayerService {
             }
         });
         
-        // TODO: Sign and send transaction to NEAR
-        // This requires proper key management and transaction signing
-        debug!("Would submit result: {:?}", result_input);
+        // Parse accounts and keys
+        let signer_account_id: NearAccountId = config.relayer_account_id.parse()?;
+        let receiver_id: NearAccountId = config.wasm_module_contract.parse()?;
         
-        Ok(())
+        // Load private key using the configured method
+        let secret_key = config.load_private_key()?;
+        let signer = InMemorySigner::from_secret_key(
+            signer_account_id.clone(),
+            secret_key.clone(),
+        );
+        
+        // Get current nonce for the account
+        let access_key_query = methods::query::RpcQueryRequest {
+            block_reference: BlockReference::latest(),
+            request: near_primitives::views::QueryRequest::ViewAccessKey {
+                account_id: signer_account_id.clone(),
+                public_key: signer.public_key(),
+            },
+        };
+        
+        let access_key_response = client.call(access_key_query).await?;
+        let nonce = if let QueryResponseKind::AccessKey(access_key) = access_key_response.kind {
+            access_key.nonce + 1
+        } else {
+            return Err("Failed to get access key".into());
+        };
+        
+        // Get latest block hash for transaction
+        let block = client.call(methods::block::RpcBlockRequest {
+            block_reference: BlockReference::latest(),
+        }).await?;
+        let block_hash = block.header.hash;
+        
+        // Create the function call action
+        let args = serde_json::to_string(&result_input)?;
+        let action = Action::FunctionCall(Box::new(FunctionCallAction {
+            method_name: "apply_execution_result".to_string(),
+            args: args.into_bytes(),
+            gas: 100_000_000_000_000, // 100 TGas
+            deposit: 0,
+        }));
+        
+        // Create the transaction
+        let transaction = Transaction::V0(TransactionV0 {
+            signer_id: signer_account_id.clone(),
+            public_key: signer.public_key(),
+            nonce,
+            receiver_id,
+            block_hash,
+            actions: vec![action],
+        });
+        
+        // Sign the transaction
+        let signature = signer.sign(transaction.get_hash_and_size().0.as_ref());
+        let signed_transaction = SignedTransaction::new(signature, transaction);
+        
+        // Submit the transaction
+        let tx_request = methods::broadcast_tx_commit::RpcBroadcastTxCommitRequest {
+            signed_transaction,
+        };
+        
+        match client.call(tx_request).await {
+            Ok(response) => {
+                info!("✅ Transaction submitted successfully: {:?}", response.transaction_outcome.id);
+                
+                // Update execution status to mark as submitted
+                let status_update_args = serde_json::json!({
+                    "request_id": request.request_id,
+                    "status": "Executed"
+                });
+                
+                // We could optionally update the status here as well
+                debug!("Execution result submitted for request {}", request.request_id);
+                Ok(())
+            }
+            Err(e) => {
+                error!("❌ Failed to submit transaction: {:?}", e);
+                Err(Box::new(e))
+            }
+        }
     }
 }
 

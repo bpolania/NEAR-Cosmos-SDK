@@ -4,6 +4,7 @@ pub mod state;
 pub mod types;
 pub mod host_functions;
 pub mod relayer_service;
+pub mod key_manager;
 
 #[cfg(test)]
 mod tests;

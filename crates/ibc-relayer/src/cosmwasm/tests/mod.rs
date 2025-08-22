@@ -9,3 +9,6 @@ mod state_tests;
 
 #[cfg(test)]
 mod integration_tests;
+
+#[cfg(test)]
+mod transaction_signing_tests;
