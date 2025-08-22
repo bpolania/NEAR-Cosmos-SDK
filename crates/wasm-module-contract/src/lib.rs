@@ -16,6 +16,9 @@ use sha2::{Sha256, Digest};
 use hex;
 
 mod address;
+pub mod execution_queue;
+
+use execution_queue::{ExecutionRequest, ExecutionStatus, CosmWasmCoin};
 
 // =============================================================================
 // Types
@@ -81,6 +84,12 @@ pub struct WasmModuleContract {
     owner: AccountId,
     /// Maximum code size in bytes (3MB default for NEAR)
     max_code_size: u64,
+    /// Execution queue for relayer processing
+    execution_queue: UnorderedMap<String, ExecutionRequest>,
+    /// Last processed block height (for relayer queries)
+    last_processed_height: u64,
+    /// Request counter for unique IDs
+    next_request_id: u64,
 }
 
 // =============================================================================
@@ -161,6 +170,9 @@ impl WasmModuleContract {
             router_contract,
             owner: owner.unwrap_or_else(|| env::current_account_id()),
             max_code_size: 3 * 1024 * 1024, // 3MB
+            execution_queue: UnorderedMap::new(b"q"),
+            last_processed_height: 0,
+            next_request_id: 1,
         }
     }
 
@@ -279,23 +291,41 @@ impl WasmModuleContract {
         }
     }
 
-    /// Execute a contract function
+    /// Execute a contract function (queues for relayer processing)
     pub fn execute(
         &mut self,
         contract_addr: String,
         msg: String,
-        _funds: Option<Vec<Coin>>,
+        funds: Option<Vec<Coin>>,
     ) -> ExecuteResponse {
         self.assert_authorized();
         
         // Verify contract exists
-        let _contract_info = self.contracts.get(&contract_addr)
+        let contract_info = self.contracts.get(&contract_addr)
             .expect("Contract does not exist");
         
-        // Mock execution - in a real implementation, this would run the WASM code
-        env::log_str(&format!("Executing contract {} with message: {}", contract_addr, msg));
+        // Create execution request for the relayer
+        let sender = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
+        let mut request = ExecutionRequest::new(
+            contract_addr.clone(),
+            contract_info.code_id,
+            "execute".to_string(),
+            msg.as_bytes().to_vec(),
+            sender,
+            env::block_height(),
+            env::block_timestamp(),
+        );
         
-        // Create mock events
+        // Override request ID with unique counter
+        request.request_id = format!("exec_{}", self.next_request_id);
+        self.next_request_id += 1;
+        
+        let request_id = request.request_id.clone();
+        self.execution_queue.insert(&request_id, &request);
+        
+        env::log_str(&format!("Queued execution request {} for contract {}", request_id, contract_addr));
+        
+        // Return a response indicating the request was queued
         let events = vec![
             Event {
                 r#type: "wasm".to_string(),
@@ -306,14 +336,18 @@ impl WasmModuleContract {
                     },
                     Attribute {
                         key: "action".to_string(),
-                        value: "execute".to_string(),
+                        value: "execute_queued".to_string(),
+                    },
+                    Attribute {
+                        key: "request_id".to_string(),
+                        value: request_id.clone(),
                     },
                 ],
             },
         ];
         
         ExecuteResponse {
-            data: Some(format!("Executed: {}", msg)),
+            data: Some(format!("Request queued: {}", request_id)),
             events,
         }
     }
@@ -435,6 +469,56 @@ impl WasmModuleContract {
             .collect()
     }
 
+    // =============================================================================
+    // Relayer Query Functions
+    // =============================================================================
+    
+    /// Get pending execution requests for the relayer
+    pub fn get_pending_executions(&self, after_height: Option<u64>) -> Vec<ExecutionRequest> {
+        let min_height = after_height.unwrap_or(0);
+        
+        self.execution_queue.iter()
+            .filter_map(|(_, request)| {
+                if request.status == ExecutionStatus::Pending && request.block_height >= min_height {
+                    Some(request)
+                } else {
+                    None
+                }
+            })
+            .take(10) // Limit to 10 requests per query
+            .collect()
+    }
+    
+    /// Get WASM code by code ID (for relayer to execute)
+    pub fn get_code(&self, code_id: u64) -> Option<Vec<u8>> {
+        if self.codes.get(&code_id).is_some() {
+            let code_key = format!("code:{}", code_id);
+            self.contract_state.get(&code_key)
+        } else {
+            None
+        }
+    }
+    
+    /// Update execution request status (called after relayer processes)
+    pub fn update_execution_status(
+        &mut self,
+        request_id: String,
+        status: ExecutionStatus,
+    ) {
+        // Only relayer can update status
+        self.assert_relayer_authorized();
+        
+        if let Some(mut request) = self.execution_queue.get(&request_id) {
+            request.status = status;
+            self.execution_queue.insert(&request_id, &request);
+            
+            // Update last processed height
+            if request.block_height > self.last_processed_height {
+                self.last_processed_height = request.block_height;
+            }
+        }
+    }
+    
     // =============================================================================
     // Query Functions
     // =============================================================================

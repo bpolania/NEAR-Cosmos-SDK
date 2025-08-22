@@ -7,6 +7,7 @@ mod chains;
 mod keystore;
 mod relay;
 mod metrics;
+mod cosmwasm;
 
 use config::RelayerConfig;
 
@@ -34,6 +35,12 @@ pub enum Commands {
         /// Chains to relay between (comma-separated)
         #[arg(long)]
         chains: Option<String>,
+    },
+    /// Start CosmWasm execution relayer
+    StartCosmWasm {
+        /// Path to CosmWasm relayer config
+        #[arg(long, default_value = "config/cosmwasm.toml")]
+        config: String,
     },
     /// Query chain information
     Query {
@@ -92,6 +99,10 @@ async fn main() -> anyhow::Result<()> {
                 info!("Relaying between chains: {}", chains);
             }
             start_relayer(config).await?;
+        }
+        Commands::StartCosmWasm { config: config_path } => {
+            info!("Starting CosmWasm relayer...");
+            start_cosmwasm_relayer(&config_path).await?;
         }
         Commands::Query { chain, query_type } => {
             info!("Querying {} on chain {}", query_type, chain);
@@ -180,6 +191,35 @@ async fn create_connection(_config: &RelayerConfig, src_chain: &str, dst_chain: 
 
 async fn create_channel(_config: &RelayerConfig, connection: &str, port: &str) -> anyhow::Result<()> {
     info!("Create channel on {} for {}: Not implemented yet", connection, port);
+    Ok(())
+}
+
+async fn start_cosmwasm_relayer(config_path: &str) -> anyhow::Result<()> {
+    use crate::cosmwasm::{CosmWasmRelayerService, CosmWasmRelayerConfig};
+    use std::fs;
+    
+    info!("🚀 Starting CosmWasm execution relayer");
+    info!("Loading configuration from: {}", config_path);
+    
+    // Load configuration
+    let config_content = fs::read_to_string(config_path)?;
+    let config: CosmWasmRelayerConfig = toml::from_str(&config_content)?;
+    
+    info!("Configuration loaded:");
+    info!("  NEAR RPC: {}", config.near_rpc_url);
+    info!("  Relayer account: {}", config.relayer_account_id);
+    info!("  WASM module contract: {}", config.wasm_module_contract);
+    info!("  Polling interval: {}ms", config.polling_interval_ms);
+    
+    // Create and start the service
+    let service = CosmWasmRelayerService::new(config);
+    
+    info!("✅ CosmWasm relayer service initialized");
+    info!("Starting monitoring and execution workers...");
+    
+    // Run the service
+    service.start().await?;
+    
     Ok(())
 }
 
