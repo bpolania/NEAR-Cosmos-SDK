@@ -434,7 +434,7 @@ class AdaptiveGasEstimator {
 #### Minimize Message Complexity
 
 ```javascript
-// ❌ Inefficient: Multiple separate transfers
+// Inefficient: Multiple separate transfers
 const inefficientTx = {
   body: {
     messages: [
@@ -454,7 +454,7 @@ const inefficientTx = {
   }
 };
 
-// ✅ Efficient: Single multi-send message
+// Efficient: Single multi-send message
 const efficientTx = {
   body: {
     messages: [{
@@ -481,7 +481,7 @@ const efficientTx = {
 #### Optimize Message Ordering
 
 ```javascript
-// ✅ Optimize message order for efficiency
+// Optimize message order for efficiency
 function optimizeMessageOrder(messages) {
   // Sort messages by estimated gas consumption (ascending)
   return messages.sort((a, b) => {
@@ -1049,7 +1049,7 @@ class RealTimeGasMonitor {
   }
   
   onAlert(alert) {
-    console.warn(`⚠️  GAS ALERT [${alert.type}]:`, alert.data.message);
+    console.warn(`GAS ALERT [${alert.type}]:`, alert.data.message);
     
     // In production, you might send this to a monitoring service
     // sendToMonitoringService(alert);

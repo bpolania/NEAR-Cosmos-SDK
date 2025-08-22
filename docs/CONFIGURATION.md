@@ -168,7 +168,7 @@ async fn update_config(
 - Custom values for private networks
 
 **Update Considerations**:
-- ⚠️ **Breaking change**: Updating chain ID invalidates all pending transactions
+- **Breaking change**: Updating chain ID invalidates all pending transactions
 - **Coordinate with clients**: All clients must update to new chain ID simultaneously
 - **Plan maintenance window**: Brief downtime may be required for coordination
 
@@ -266,7 +266,7 @@ async function adjustGasPrice(client, networkMetrics) {
 
 **Values**:
 - `true` - **Production setting**: Full signature verification enabled
-- `false` - **Testing only**: Signatures ignored (⚠️ **INSECURE**)
+- `false` - **Testing only**: Signatures ignored (**INSECURE**)
 
 **Use Cases**:
 ```javascript
@@ -279,14 +279,14 @@ const productionConfig = {
 
 // Testing configuration (development only)
 const testingConfig = {
-  verify_signatures: false, // ⚠️ TESTING ONLY - NEVER in production
+  verify_signatures: false, // TESTING ONLY - NEVER in production
   check_sequences: false,   // May also disable for easier testing
   // ... other settings
 };
 ```
 
 **Security Warning**: 
-> ⚠️ **NEVER disable signature verification in production environments**. This completely removes transaction authentication and allows unauthorized transaction execution.
+> **NEVER disable signature verification in production environments**. This completely removes transaction authentication and allows unauthorized transaction execution.
 
 ### Sequence Number Validation (`check_sequences`)
 
@@ -299,7 +299,7 @@ const testingConfig = {
 
 **Values**:
 - `true` - **Recommended**: Full sequence validation (prevents replay attacks)
-- `false` - **Special cases**: Disabled validation (⚠️ **reduces security**)
+- `false` - **Special cases**: Disabled validation (**reduces security**)
 
 **Sequence Management Strategies**:
 ```javascript

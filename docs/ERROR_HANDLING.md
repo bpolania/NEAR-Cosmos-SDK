@@ -89,7 +89,7 @@ All error responses follow this structure:
 
 **Solutions**:
 ```javascript
-// ✅ Correct transaction structure
+// Correct transaction structure
 const validTx = {
   body: {
     messages: [...],      // Required: array of messages
@@ -105,7 +105,7 @@ const validTx = {
   signatures: [...]     // Required: array of signature bytes
 };
 
-// ✅ Proper Base64 encoding
+// Proper Base64 encoding
 const txBytes = base64Encode(JSON.stringify(validTx));
 ```
 
@@ -133,7 +133,7 @@ const txBytes = base64Encode(JSON.stringify(validTx));
 
 **Solutions**:
 ```javascript
-// ✅ Correct signing process
+// Correct signing process
 const signDoc = {
   body_bytes: encodeToProtobuf(txBody),
   auth_info_bytes: encodeToProtobuf(authInfo),
@@ -141,7 +141,7 @@ const signDoc = {
   account_number: "42"                  // Must match account's number
 };
 
-// ✅ Proper secp256k1 signing
+// Proper secp256k1 signing
 const hash = sha256(canonicalJSON(signDoc));
 const signature = secp256k1.sign(hash, privateKey); // 65 bytes
 ```
@@ -169,7 +169,7 @@ const signature = secp256k1.sign(hash, privateKey); // 65 bytes
 
 **Solutions**:
 ```javascript
-// ✅ Query current sequence before each transaction
+// Query current sequence before each transaction
 async function sendTransaction(tx) {
   const account = await queryAccount(senderAddress);
   
@@ -186,7 +186,7 @@ async function sendTransaction(tx) {
   return result;
 }
 
-// ✅ Handle concurrent transactions
+// Handle concurrent transactions
 let sequenceCounter = await getAccountSequence(address);
 const promises = transactions.map(async (tx, index) => {
   tx.auth_info.signer_infos[0].sequence = sequenceCounter + index;
@@ -217,7 +217,7 @@ const promises = transactions.map(async (tx, index) => {
 
 **Solutions**:
 ```javascript
-// ✅ Check balance before transaction
+// Check balance before transaction
 async function validateBalance(address, amount, fee) {
   const balance = await getAccountBalance(address);
   const required = BigInt(amount) + BigInt(fee.amount[0].amount);
@@ -227,7 +227,7 @@ async function validateBalance(address, amount, fee) {
   }
 }
 
-// ✅ Use simulation for accurate fee estimation
+// Use simulation for accurate fee estimation
 const simulation = await simulateTx(txBytes);
 const estimatedFee = Math.ceil(simulation.gas_used * gasPrice * 1.2); // 20% buffer
 ```
@@ -255,14 +255,14 @@ const estimatedFee = Math.ceil(simulation.gas_used * gasPrice * 1.2); // 20% buf
 
 **Solutions**:
 ```javascript
-// ✅ Use simulation for gas estimation
+// Use simulation for gas estimation
 const simulation = await simulateTx(txBytes);
 const recommendedGas = Math.ceil(simulation.gas_used * 1.3); // 30% buffer
 
 // Update gas limit in transaction
 tx.auth_info.fee.gas_limit = recommendedGas;
 
-// ✅ Set reasonable maximums for complex transactions
+// Set reasonable maximums for complex transactions
 const gasLimits = {
   simple_transfer: 200000,
   staking_delegate: 300000,
@@ -295,7 +295,7 @@ const gasLimits = {
 
 **Solutions**:
 ```javascript
-// ✅ Validate addresses before use
+// Validate addresses before use
 function validateCosmosAddress(address) {
   const bech32Regex = /^cosmos1[0-9a-z]{38}$/;
   if (!bech32Regex.test(address)) {
@@ -310,7 +310,7 @@ function validateCosmosAddress(address) {
   }
 }
 
-// ✅ Generate proper Cosmos addresses
+// Generate proper Cosmos addresses
 function generateCosmosAddress(publicKey) {
   const hash = sha256(publicKey).slice(0, 20); // First 20 bytes
   return bech32.encode('cosmos', hash);
@@ -340,7 +340,7 @@ function generateCosmosAddress(publicKey) {
 
 **Solutions**:
 ```javascript
-// ✅ Handle not found gracefully
+// Handle not found gracefully
 async function getTxWithRetry(hash, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
     const result = await getTx(hash);
@@ -496,31 +496,31 @@ function logTransactionError(tx, error) {
 
 When encountering transaction errors, check these items in order:
 
-### 1. Transaction Structure ✅
+### 1. Transaction Structure
 - [ ] Valid JSON format
 - [ ] All required fields present (body, auth_info, signatures)
 - [ ] Correct data types for all fields
 - [ ] Proper Base64 encoding of tx_bytes
 
-### 2. Account Information ✅
+### 2. Account Information
 - [ ] Correct account address format (bech32)
 - [ ] Account exists and has been used before
 - [ ] Current sequence number (query account)
 - [ ] Sufficient balance for transfer + fees
 
-### 3. Signature Validation ✅
+### 3. Signature Validation
 - [ ] Correct private key for account
 - [ ] Proper sign document construction
 - [ ] Correct chain_id and account_number
 - [ ] Valid secp256k1 signature (65 bytes)
 
-### 4. Fee and Gas ✅
+### 4. Fee and Gas
 - [ ] Sufficient fee amount
 - [ ] Supported fee denomination
 - [ ] Reasonable gas limit
 - [ ] Gas price within acceptable range
 
-### 5. Message Validation ✅
+### 5. Message Validation
 - [ ] Supported message types
 - [ ] Valid message parameters
 - [ ] Correct address formats in messages
