@@ -91,10 +91,10 @@ async fn setup_full_deployment(
 
 /// Create a test account
 async fn create_test_account(worker: &Worker<near_workspaces::network::Sandbox>, name: &str) -> Result<Account> {
-    let account = worker
-        .create_tla(name.parse()?, near_workspaces::types::SecretKey::from_random(near_workspaces::types::KeyType::ED25519))
-        .await?
-        .result;
+    // Create a dev account (with generated name)
+    let account = worker.dev_create_account().await?;
+    // Store the actual ID for debugging
+    println!("Created {} with actual ID: {}", name, account.id());
     Ok(account)
 }
 
@@ -393,7 +393,7 @@ async fn test_router_wasm_listing() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Permissions not fully implemented in simplified wasm module"]
+#[ignore = "Permissions through router require original_caller feature - contracts need rebuild with cargo near build"]
 async fn test_router_wasm_permissions() -> Result<()> {
     println!("🧪 Testing Permissions Through Router");
     
@@ -402,6 +402,10 @@ async fn test_router_wasm_permissions() -> Result<()> {
     let admin = create_test_account(&worker, "admin").await?;
     let user1 = create_test_account(&worker, "user1").await?;
     let user2 = create_test_account(&worker, "user2").await?;
+    
+    println!("Admin account: {}", admin.id());
+    println!("User1 account: {}", user1.id());
+    println!("User2 account: {}", user2.id());
     
     // Store code with restricted permission through router
     let restricted_code = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
@@ -422,8 +426,10 @@ async fn test_router_wasm_permissions() -> Result<()> {
     let store_response: StoreCodeResponse = store_result.json()?;
     let restricted_code_id = store_response.code_id;
     println!("✅ Stored restricted code with ID: {}", restricted_code_id);
+    println!("  Permission set to only allow: {}", user1.id());
     
     // user1 should succeed instantiating through router
+    println!("User1 ({}) calling router to instantiate...", user1.id());
     let user1_result = user1
         .call(router.id(), "wasm_instantiate")
         .args_json(json!({
@@ -437,7 +443,12 @@ async fn test_router_wasm_permissions() -> Result<()> {
         .transact()
         .await?;
     
-    assert!(user1_result.is_success(), "User1 instantiate failed: {:?}", user1_result.logs());
+    if !user1_result.is_success() {
+        println!("User1 instantiate failed!");
+        println!("Logs: {:?}", user1_result.logs());
+        println!("Failures: {:?}", user1_result.failures());
+        panic!("User1 should be able to instantiate the restricted code");
+    }
     println!("✅ User1 can instantiate restricted code through router");
     
     // user2 should fail instantiating through router

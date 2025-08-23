@@ -188,6 +188,7 @@ impl WasmModuleContract {
         source: Option<String>,
         builder: Option<String>,
         instantiate_permission: Option<AccessConfig>,
+        original_caller: Option<AccountId>,
     ) -> StoreCodeResponse {
         self.assert_authorized();
         
@@ -215,7 +216,9 @@ impl WasmModuleContract {
         self.next_code_id += 1;
         
         // Store code info with Cosmos-style creator address
-        let creator_cosmos = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
+        // Use original_caller if provided (when called through router), otherwise use direct caller
+        let actual_caller = original_caller.unwrap_or_else(|| env::predecessor_account_id());
+        let creator_cosmos = address::near_to_cosmos_address(&actual_caller, None);
         let code_info = CodeInfo {
             code_id,
             creator: creator_cosmos,
@@ -247,6 +250,7 @@ impl WasmModuleContract {
         _funds: Option<Vec<Coin>>,
         label: String,
         admin: Option<String>,
+        original_caller: Option<AccountId>,
     ) -> InstantiateResponse {
         // No assert_authorized here - permission check is sufficient
         
@@ -255,7 +259,11 @@ impl WasmModuleContract {
             .expect("Code ID does not exist");
         
         // Check instantiate permission
-        self.check_instantiate_permission(&code_info.instantiate_permission);
+        // Use original_caller if provided (when called through router), otherwise use direct caller
+        let actual_caller = original_caller.clone().unwrap_or_else(|| env::predecessor_account_id());
+        env::log_str(&format!("Checking permission: actual_caller={}, predecessor={}", 
+            actual_caller, env::predecessor_account_id()));
+        self.check_instantiate_permission(&code_info.instantiate_permission, &actual_caller);
         
         // Generate Cosmos-style contract address
         let instance_id = self.next_instance_id;
@@ -267,7 +275,9 @@ impl WasmModuleContract {
         );
         
         // Store contract info with Cosmos-style creator address
-        let creator_cosmos = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
+        // Use original_caller if provided (when called through router), otherwise use direct caller
+        let actual_caller = original_caller.unwrap_or_else(|| env::predecessor_account_id());
+        let creator_cosmos = address::near_to_cosmos_address(&actual_caller, None);
         let contract_info = ContractInfo {
             address: contract_addr.clone(),
             code_id,
@@ -297,6 +307,7 @@ impl WasmModuleContract {
         contract_addr: String,
         msg: String,
         funds: Option<Vec<Coin>>,
+        original_caller: Option<AccountId>,
     ) -> ExecuteResponse {
         self.assert_authorized();
         
@@ -305,7 +316,9 @@ impl WasmModuleContract {
             .expect("Contract does not exist");
         
         // Create execution request for the relayer
-        let sender = address::near_to_cosmos_address(&env::predecessor_account_id(), None);
+        // Use original_caller if provided (when called through router), otherwise use direct caller
+        let actual_caller = original_caller.unwrap_or_else(|| env::predecessor_account_id());
+        let sender = address::near_to_cosmos_address(&actual_caller, None);
         let mut request = ExecutionRequest::new(
             contract_addr.clone(),
             contract_info.code_id,
@@ -657,9 +670,8 @@ impl WasmModuleContract {
         );
     }
 
-    fn check_instantiate_permission(&self, permission: &AccessConfig) {
-        let sender = env::predecessor_account_id();
-        let sender_str = sender.to_string();
+    fn check_instantiate_permission(&self, permission: &AccessConfig, actual_caller: &AccountId) {
+        let sender_str = actual_caller.to_string();
         
         match permission {
             AccessConfig::Nobody {} => {
@@ -728,6 +740,7 @@ mod tests {
             Some("test source".to_string()),
             Some("test builder".to_string()),
             None,
+            None,  // original_caller
         );
         
         assert_eq!(response.code_id, 1);
@@ -744,7 +757,7 @@ mod tests {
         
         // First store code
         let wasm_code = Base64VecU8::from(vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
-        let store_response = contract.store_code(wasm_code, None, None, None);
+        let store_response = contract.store_code(wasm_code, None, None, None, None);
         
         // Then instantiate
         let instantiate_response = contract.instantiate(
@@ -753,6 +766,7 @@ mod tests {
             None,
             "test contract".to_string(),
             None,
+            None,  // original_caller
         );
         
         assert!(instantiate_response.address.starts_with("proxima1"));

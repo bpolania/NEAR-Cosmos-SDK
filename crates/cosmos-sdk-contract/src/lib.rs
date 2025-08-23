@@ -24,6 +24,7 @@ trait ExtWasmModule {
         source: Option<String>,
         builder: Option<String>,
         instantiate_permission: Option<AccessConfig>,
+        original_caller: Option<AccountId>,
     ) -> StoreCodeResponse;
     
     fn instantiate(
@@ -33,6 +34,7 @@ trait ExtWasmModule {
         funds: Option<Vec<Coin>>,
         label: String,
         admin: Option<String>,
+        original_caller: Option<AccountId>,
     ) -> InstantiateResponse;
     
     fn execute(
@@ -40,6 +42,7 @@ trait ExtWasmModule {
         contract_addr: String,
         msg: String,
         funds: Option<Vec<Coin>>,
+        original_caller: Option<AccountId>,
     ) -> ExecuteResponse;
 
     fn get_code_info(&self, code_id: u64) -> Option<CodeInfo>;
@@ -272,7 +275,13 @@ impl ModularCosmosRouter {
         
         ext_wasm_module::ext(wasm_contract)
             .with_attached_deposit(env::attached_deposit())
-            .store_code(wasm_base64, source, builder, instantiate_permission)
+            .store_code(
+                wasm_base64, 
+                source, 
+                builder, 
+                instantiate_permission,
+                Some(env::predecessor_account_id())  // Pass original caller
+            )
     }
 
     /// Instantiate a CosmWasm contract via the wasm module
@@ -290,9 +299,19 @@ impl ModularCosmosRouter {
             .parse::<AccountId>()
             .expect("Invalid wasm module account ID");
         
+        let original_caller = env::predecessor_account_id();
+        env::log_str(&format!("Router: passing original_caller={} to wasm module", original_caller));
+        
         ext_wasm_module::ext(wasm_contract)
             .with_attached_deposit(env::attached_deposit())
-            .instantiate(code_id, msg, funds, label, admin)
+            .instantiate(
+                code_id, 
+                msg, 
+                funds, 
+                label, 
+                admin,
+                Some(original_caller)  // Pass original caller
+            )
     }
 
     /// Execute a CosmWasm contract via the wasm module
@@ -310,7 +329,12 @@ impl ModularCosmosRouter {
         
         ext_wasm_module::ext(wasm_contract)
             .with_attached_deposit(env::attached_deposit())
-            .execute(contract_addr, msg, funds)
+            .execute(
+                contract_addr, 
+                msg, 
+                funds,
+                Some(env::predecessor_account_id())  // Pass original caller
+            )
     }
 
     /// Get code info from the wasm module
