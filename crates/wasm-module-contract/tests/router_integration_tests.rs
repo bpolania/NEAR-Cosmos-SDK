@@ -9,6 +9,38 @@ use near_workspaces::{Account, Contract, Worker};
 use serde_json::json;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use serde::{Deserialize, Serialize};
+
+// Response types from the contracts
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StoreCodeResponse {
+    pub code_id: u64,
+    pub checksum: String,  // Hex string in JSON
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct InstantiateResponse {
+    pub address: String,
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExecuteResponse {
+    pub data: Option<String>,
+    pub events: Vec<Event>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Event {
+    pub r#type: String,
+    pub attributes: Vec<Attribute>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Attribute {
+    pub key: String,
+    pub value: String,
+}
 
 const ROUTER_WASM: &str = "../cosmos-sdk-contract/target/near/cosmos_sdk_contract.wasm";
 const WASM_MODULE_WASM: &str = "./target/near/wasm_module_contract.wasm";
@@ -97,7 +129,8 @@ async fn test_router_wasm_store_code() -> Result<()> {
     
     assert!(store_result.is_success(), "Store code through router failed: {:?}", store_result.logs());
     
-    let code_id: u64 = store_result.json()?;
+    let response: StoreCodeResponse = store_result.json()?;
+    let code_id = response.code_id;
     assert_eq!(code_id, 1);
     println!("✅ Stored code through router with ID: {}", code_id);
     
@@ -113,17 +146,9 @@ async fn test_router_wasm_store_code() -> Result<()> {
     assert!(code_info.is_some());
     println!("✅ Code verified in wasm module: {:?}", code_info);
     
-    // Also verify through router's view function
-    let router_code_info = router
-        .view("wasm_code_info")
-        .args_json(json!({
-            "code_id": code_id
-        }))
-        .await?;
-    
-    let router_info: Option<serde_json::Value> = router_code_info.json()?;
-    assert!(router_info.is_some());
-    println!("✅ Code info accessible through router");
+    // Note: Can't verify through router's view function since cross-contract 
+    // calls require transactions, not views. The router can only forward
+    // mutable calls, not view calls.
     
     println!("🎉 Router code storage test completed successfully!");
     Ok(())

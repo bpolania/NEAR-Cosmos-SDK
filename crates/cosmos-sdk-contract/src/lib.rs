@@ -1,6 +1,7 @@
 // Modular Router Contract - Clean implementation without symbol conflicts
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, Promise, ext_contract};
+use near_sdk::json_types::Base64VecU8;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
@@ -19,7 +20,7 @@ pub mod contracts;
 trait ExtWasmModule {
     fn store_code(
         &mut self,
-        wasm_byte_code: Vec<u8>,
+        wasm_byte_code: Base64VecU8,
         source: Option<String>,
         builder: Option<String>,
         instantiate_permission: Option<AccessConfig>,
@@ -118,6 +119,14 @@ pub struct ContractInfo {
 pub struct ModuleInfo {
     pub contract_id: String,
     pub version: String,
+}
+
+// Self callback interface
+#[ext_contract(ext_self)]
+trait ExtSelf {
+    fn wasm_store_code_callback(&self) -> u64;
+    fn wasm_instantiate_callback(&self) -> String;
+    fn wasm_execute_callback(&self) -> serde_json::Value;
 }
 
 // Router Contract Implementation
@@ -245,6 +254,7 @@ impl ModularCosmosRouter {
     // CosmWasm routing methods
 
     /// Store WASM code via the wasm module
+    #[payable]
     pub fn wasm_store_code(
         &mut self,
         wasm_byte_code: Vec<u8>,
@@ -257,8 +267,12 @@ impl ModularCosmosRouter {
             .parse::<AccountId>()
             .expect("Invalid wasm module account ID");
 
+        // Convert Vec<u8> to Base64VecU8 for cross-contract call
+        let wasm_base64 = Base64VecU8::from(wasm_byte_code);
+        
         ext_wasm_module::ext(wasm_contract)
-            .store_code(wasm_byte_code, source, builder, instantiate_permission)
+            .with_attached_deposit(env::attached_deposit())
+            .store_code(wasm_base64, source, builder, instantiate_permission)
     }
 
     /// Instantiate a CosmWasm contract via the wasm module
