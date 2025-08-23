@@ -535,6 +535,7 @@ async fn test_router_module_info() -> Result<()> {
         .await?;
     
     let modules: serde_json::Value = modules_result.json()?;
+    println!("DEBUG: modules = {:?}", modules);
     assert!(modules["wasm"].is_object());
     
     let wasm_info = &modules["wasm"];
