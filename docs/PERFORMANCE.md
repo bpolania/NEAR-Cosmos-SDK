@@ -105,7 +105,7 @@ impl SignatureVerifier {
         Ok(result)
     }
     
-    // ✅ Batch signature verifications when possible
+    // Batch signature verifications when possible
     pub fn verify_batch(&self, signatures: Vec<SignatureData>) -> Vec<bool> {
         signatures.par_iter() // Use parallel processing for independent verifications
             .map(|sig_data| {
@@ -115,7 +115,7 @@ impl SignatureVerifier {
             .collect()
     }
     
-    // ✅ Early exit on invalid signatures in multi-signature scenarios
+    // Early exit on invalid signatures in multi-signature scenarios
     pub fn verify_multisig(&self, signatures: &[SignatureData], threshold: usize) -> bool {
         let mut valid_count = 0;
         
@@ -137,7 +137,7 @@ impl SignatureVerifier {
 
 ```rust
 impl MessageProcessor {
-    // ✅ Use pattern matching for efficient message routing
+    // Use pattern matching for efficient message routing
     pub fn process_message(&mut self, message: &Any) -> Result<MessageResponse, ProcessingError> {
         match message.type_url.as_str() {
             "/cosmos.bank.v1beta1.MsgSend" => {
@@ -153,7 +153,7 @@ impl MessageProcessor {
         }
     }
     
-    // ✅ Optimize common operations
+    // Optimize common operations
     pub fn process_bank_send(&mut self, message: &Any) -> Result<MessageResponse, ProcessingError> {
         let msg: MsgSend = self.decode_message(message)?;
         
@@ -166,7 +166,7 @@ impl MessageProcessor {
         self.process_multi_send(&msg)
     }
     
-    // ✅ Pre-validate before expensive operations
+    // Pre-validate before expensive operations
     pub fn process_single_send(&mut self, msg: &MsgSend) -> Result<MessageResponse, ProcessingError> {
         let coin = &msg.amount[0];
         
@@ -199,7 +199,7 @@ impl MessageProcessor {
 
 ```rust
 impl CosmosContract {
-    // ✅ Minimize storage writes by batching updates
+    // Minimize storage writes by batching updates
     pub fn process_transaction_batch(&mut self, tx: CosmosTx) -> TxResponse {
         let mut account_updates = Vec::new();
         let mut balance_updates = Vec::new();
@@ -222,7 +222,7 @@ impl CosmosContract {
         TxResponse::success()
     }
     
-    // ✅ Use lazy loading for expensive operations
+    // Use lazy loading for expensive operations
     pub fn get_validator_info(&self, validator_address: &str) -> Option<ValidatorInfo> {
         // Check cache first
         if let Some(cached) = self.validator_cache.get(validator_address) {
@@ -252,7 +252,7 @@ class OptimalTransactionBatcher {
     this.gasEstimates = new Map();
   }
   
-  // ✅ Intelligent message batching based on gas efficiency
+  // Intelligent message batching based on gas efficiency
   createOptimalBatches(messages) {
     // Sort messages by gas efficiency (gas per operation value)
     const sortedMessages = messages.sort((a, b) => {
@@ -312,7 +312,7 @@ class OptimalTransactionBatcher {
     }
   }
   
-  // ✅ Optimize message order within transactions
+  // Optimize message order within transactions
   optimizeMessageOrder(messages) {
     // Group by type for better processing efficiency
     const grouped = {
@@ -357,7 +357,7 @@ class ParallelTransactionManager {
     this.requestQueue = [];
   }
   
-  // ✅ Process independent transactions in parallel
+  // Process independent transactions in parallel
   async processTransactionsBatch(transactions) {
     // Group by sender to handle sequence dependencies
     const groupedBySender = this.groupBySender(transactions);
@@ -409,7 +409,7 @@ class ParallelTransactionManager {
     return { sender, results };
   }
   
-  // ✅ Implement request throttling to avoid overwhelming the RPC
+  // Implement request throttling to avoid overwhelming the RPC
   async sendTransaction(tx) {
     return new Promise((resolve, reject) => {
       const request = { tx, resolve, reject };
@@ -506,7 +506,7 @@ class OptimizedProximaClient {
     this.cache = new Map();
   }
   
-  // ✅ Implement connection pooling
+  // Implement connection pooling
   async getConnection() {
     if (this.connectionPool.length > 0) {
       return this.connectionPool.pop();
@@ -564,7 +564,7 @@ class OptimizedProximaClient {
     }
   }
   
-  // ✅ Implement intelligent caching
+  // Implement intelligent caching
   async callWithCache(method, params, cacheTtl = 30000) {
     const cacheKey = `${method}:${JSON.stringify(params)}`;
     
@@ -600,7 +600,7 @@ class OptimizedProximaClient {
     }
   }
   
-  // ✅ Implement retry logic with exponential backoff
+  // Implement retry logic with exponential backoff
   async callWithRetry(method, params, retryCount = 0) {
     try {
       return await this.call(method, params);
@@ -663,7 +663,7 @@ class RequestOptimizer {
     this.responseCache = new LRUCache({ max: 1000, ttl: 30000 });
   }
   
-  // ✅ Batch multiple requests into single RPC call when possible
+  // Batch multiple requests into single RPC call when possible
   async batchRequests(requests) {
     const batchableRequests = requests.filter(req => this.isBatchable(req.method));
     const individualRequests = requests.filter(req => !this.isBatchable(req.method));
@@ -702,7 +702,7 @@ class RequestOptimizer {
     return batchableMethods.includes(method);
   }
   
-  // ✅ Implement request deduplication
+  // Implement request deduplication
   async deduplicatedCall(method, params) {
     const requestKey = `${method}:${JSON.stringify(params)}`;
     
@@ -782,7 +782,7 @@ class LoadBalancedProximaClient {
     this.startHealthChecks();
   }
   
-  // ✅ Implement intelligent endpoint selection
+  // Implement intelligent endpoint selection
   selectBestEndpoint() {
     const activeEndpoints = this.endpoints.filter(ep => ep.active);
     
@@ -806,7 +806,7 @@ class LoadBalancedProximaClient {
     return (responseTimeFactor * 0.4 + errorRateFactor * 0.4 + healthFactor * 0.2);
   }
   
-  // ✅ Implement automatic failover
+  // Implement automatic failover
   async callWithFailover(method, params) {
     let lastError;
     const maxAttempts = Math.min(this.options.maxRetries, this.endpoints.length);
@@ -904,7 +904,7 @@ class MultilevelCache {
     };
   }
   
-  // ✅ Implement multilevel caching (memory -> Redis -> source)
+  // Implement multilevel caching (memory -> Redis -> source)
   async get(key) {
     // Level 1: Memory cache
     let result = this.memoryCache.get(key);
@@ -950,7 +950,7 @@ class MultilevelCache {
     this.cacheStats.sets++;
   }
   
-  // ✅ Implement cache warming for frequently accessed data
+  // Implement cache warming for frequently accessed data
   async warmCache(warmingStrategies) {
     console.log('Starting cache warming...');
     
