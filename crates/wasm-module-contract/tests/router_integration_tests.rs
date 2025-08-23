@@ -176,7 +176,8 @@ async fn test_router_wasm_instantiate() -> Result<()> {
         .transact()
         .await?;
     
-    let code_id: u64 = store_result.json()?;
+    let store_response: StoreCodeResponse = store_result.json()?;
+    let code_id = store_response.code_id;
     
     // Instantiate through router
     let init_msg = json!({
@@ -193,10 +194,10 @@ async fn test_router_wasm_instantiate() -> Result<()> {
         .call(router.id(), "wasm_instantiate")
         .args_json(json!({
             "code_id": code_id,
-            "msg": serde_json::to_vec(&init_msg)?,
-            "funds": [],
+            "msg": serde_json::to_string(&init_msg)?,
+            "funds": null,
             "label": "Test Token Contract",
-            "admin": admin.id()
+            "admin": admin.id().to_string()
         }))
         .max_gas()
         .transact()
@@ -204,9 +205,11 @@ async fn test_router_wasm_instantiate() -> Result<()> {
     
     assert!(instantiate_result.is_success(), "Instantiate through router failed: {:?}", instantiate_result.logs());
     
-    let response: serde_json::Value = instantiate_result.json()?;
-    let contract_addr = response["address"].as_str().unwrap();
-    assert!(contract_addr.starts_with("contract"));
+    let response: InstantiateResponse = instantiate_result.json()?;
+    let contract_addr = response.address;
+    println!("Contract address: {}", contract_addr);
+    // Contract addresses in our implementation start with "proxima1"
+    assert!(contract_addr.starts_with("proxima1"), "Expected Cosmos-style address, got: {}", contract_addr);
     println!("✅ Instantiated contract through router at: {}", contract_addr);
     
     // Verify contract in wasm module
@@ -224,17 +227,8 @@ async fn test_router_wasm_instantiate() -> Result<()> {
     assert_eq!(info["label"], "Test Token Contract");
     println!("✅ Contract verified in wasm module");
     
-    // Also verify through router
-    let router_contract_info = router
-        .view("wasm_contract_info")
-        .args_json(json!({
-            "address": contract_addr
-        }))
-        .await?;
-    
-    let router_info: Option<serde_json::Value> = router_contract_info.json()?;
-    assert!(router_info.is_some());
-    println!("✅ Contract info accessible through router");
+    // Note: Can't verify through router's view function since cross-contract 
+    // calls require transactions, not views.
     
     println!("🎉 Router instantiation test completed successfully!");
     Ok(())
@@ -263,7 +257,8 @@ async fn test_router_wasm_execute() -> Result<()> {
         .transact()
         .await?;
     
-    let code_id: u64 = store_result.json()?;
+    let store_response: StoreCodeResponse = store_result.json()?;
+    let code_id = store_response.code_id;
     
     let instantiate_result = admin
         .call(router.id(), "wasm_instantiate")
@@ -354,7 +349,8 @@ async fn test_router_wasm_listing() -> Result<()> {
             .transact()
             .await?;
         
-        let code_id: u64 = store_result.json()?;
+        let store_response: StoreCodeResponse = store_result.json()?;
+    let code_id = store_response.code_id;
         code_ids.push(code_id);
     }
     println!("✅ Stored {} codes through router", code_ids.len());
