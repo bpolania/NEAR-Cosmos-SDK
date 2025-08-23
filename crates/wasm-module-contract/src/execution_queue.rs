@@ -3,10 +3,10 @@
 /// This module handles queuing execution requests for the relayer to process
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::U128;
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct ExecutionRequest {
     pub request_id: String,
     pub contract_address: String,
@@ -20,13 +20,13 @@ pub struct ExecutionRequest {
     pub status: ExecutionStatus,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct CosmWasmCoin {
     pub denom: String,
-    pub amount: U128,
+    pub amount: String,  // Changed from U128 to String for JsonSchema compatibility
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum ExecutionStatus {
     Pending,
     Processing,

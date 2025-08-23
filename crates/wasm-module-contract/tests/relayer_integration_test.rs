@@ -28,6 +28,7 @@ fn setup_contract() -> (WasmModuleContract, String) {
         None,
         None,
         None,
+        None,
     );
     
     // Instantiate a test contract
@@ -37,6 +38,7 @@ fn setup_contract() -> (WasmModuleContract, String) {
         None,
         "test_contract".to_string(),
         None, // admin
+        None,
     );
     
     println!("Contract instantiated at: {}", response.address);

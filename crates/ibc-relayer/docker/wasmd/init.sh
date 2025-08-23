@@ -14,6 +14,7 @@ echo "Home dir: $HOME_DIR"
 # Check if already initialized
 if [ -d "$HOME_DIR/config" ] && [ -f "$HOME_DIR/config/genesis.json" ]; then
     echo "Node already initialized, starting wasmd..."
+    exec wasmd start --home $HOME_DIR
 else
     echo "Initializing new node..."
 fi

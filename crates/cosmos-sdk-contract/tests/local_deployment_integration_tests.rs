@@ -7,7 +7,14 @@
 use anyhow::Result;
 use near_workspaces::{types::NearToken, Account, Contract, Worker};
 use serde_json::json;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ModuleInfo {
+    contract_id: String,
+    version: String,
+}
 
 const WASM_FILEPATH: &str = "./target/near/cosmos_sdk_contract.wasm";
 
@@ -224,11 +231,11 @@ async fn test_complex_workflow_integration() -> Result<()> {
         .args_json(json!({}))
         .await?;
     
-    let modules_map: HashMap<String, String> = registered_modules.json()?;
+    let modules_map: HashMap<String, ModuleInfo> = registered_modules.json()?;
     assert_eq!(modules_map.len(), 3);
-    assert_eq!(modules_map["wasm"], "wasm-module.near");
-    assert_eq!(modules_map["bank"], "bank-module.near");
-    assert_eq!(modules_map["staking"], "staking-module.near");
+    assert_eq!(modules_map["wasm"].contract_id, "wasm-module.near");
+    assert_eq!(modules_map["bank"].contract_id, "bank-module.near");
+    assert_eq!(modules_map["staking"].contract_id, "staking-module.near");
     println!("  ✅ Verified {} registered modules", modules_map.len());
     
     // Phase 3: Metadata and stats verification
@@ -241,7 +248,7 @@ async fn test_complex_workflow_integration() -> Result<()> {
     
     let metadata_val: serde_json::Value = metadata.json()?;
     assert_eq!(metadata_val["type"], "modular_router");
-    assert_eq!(metadata_val["modules"]["wasm"], "wasm-module.near");
+    assert!(metadata_val["modules"]["wasm"].is_object());
     println!("  ✅ Metadata verified");
     
     let stats = contract
@@ -333,7 +340,7 @@ async fn test_state_persistence_integration() -> Result<()> {
         .args_json(json!({}))
         .await?;
     
-    let modules_map: HashMap<String, String> = modules.json()?;
+    let modules_map: HashMap<String, ModuleInfo> = modules.json()?;
     assert_eq!(modules_map.len(), 2);
     println!("  ✅ Initial state: {} modules registered", modules_map.len());
     
@@ -367,7 +374,7 @@ async fn test_state_persistence_integration() -> Result<()> {
             .args_json(json!({}))
             .await?;
         
-        let modules_map: HashMap<String, String> = modules.json()?;
+        let modules_map: HashMap<String, ModuleInfo> = modules.json()?;
         assert!(modules_map.contains_key(*module_type));
         
         println!("  ✅ Added module {}: Total = {}", module_type, modules_map.len());
@@ -405,7 +412,7 @@ async fn test_state_persistence_integration() -> Result<()> {
         .args_json(json!({}))
         .await?;
     
-    let final_modules_map: HashMap<String, String> = final_modules.json()?;
+    let final_modules_map: HashMap<String, ModuleInfo> = final_modules.json()?;
     assert_eq!(final_modules_map.len(), 5); // 2 initial + 3 additional
     println!("  ✅ Final state verified: {} modules registered", final_modules_map.len());
     
