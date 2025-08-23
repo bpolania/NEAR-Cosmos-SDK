@@ -393,7 +393,6 @@ async fn test_router_wasm_listing() -> Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "Permissions through router require original_caller feature - contracts need rebuild with cargo near build"]
 async fn test_router_wasm_permissions() -> Result<()> {
     println!("🧪 Testing Permissions Through Router");
     
@@ -484,7 +483,8 @@ async fn test_router_wasm_permissions() -> Result<()> {
         .transact()
         .await?;
     
-    let any_of_code_id: u64 = store_result.json()?;
+    let store_response: StoreCodeResponse = store_result.json()?;
+    let any_of_code_id = store_response.code_id;
     
     // Both users should succeed
     let user1_result = user1

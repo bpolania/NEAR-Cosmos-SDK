@@ -25,6 +25,7 @@ fn setup_contract_with_code() -> (WasmModuleContract, u64, String) {
         Some("test".to_string()),
         None,
         None,
+        None,
     );
     
     // Instantiate a test contract
@@ -33,6 +34,7 @@ fn setup_contract_with_code() -> (WasmModuleContract, u64, String) {
         "{}".to_string(),
         None,
         "test_contract".to_string(),
+        None,
         None,
     );
     
@@ -47,6 +49,7 @@ fn test_execute_queues_request() {
     let response = contract.execute(
         contract_addr.clone(),
         r#"{"increment": {}}"#.to_string(),
+        None,
         None,
     );
     
@@ -77,6 +80,7 @@ fn test_get_pending_executions() {
         contract_addr.clone(),
         r#"{"increment": {}}"#.to_string(),
         None,
+        None,
     );
     
     // Now should have one pending execution
@@ -98,6 +102,7 @@ fn test_get_pending_executions_with_height_filter() {
     contract.execute(
         contract_addr.clone(),
         r#"{"increment": {}}"#.to_string(),
+        None,
         None,
     );
     
@@ -138,6 +143,7 @@ fn test_update_execution_status_as_relayer() {
         contract_addr.clone(),
         r#"{"increment": {}}"#.to_string(),
         None,
+        None,
     );
     
     // Extract request_id from response
@@ -168,6 +174,7 @@ fn test_update_execution_status_unauthorized() {
     let response = contract.execute(
         contract_addr.clone(),
         r#"{"increment": {}}"#.to_string(),
+        None,
         None,
     );
     
@@ -203,6 +210,7 @@ fn test_multiple_pending_executions() {
             contract_addr.clone(),
             format!(r#"{{"increment": {}}}"#, i),
             None,
+            None,
         );
     }
     
@@ -226,6 +234,7 @@ fn test_execution_queue_pagination() {
         contract.execute(
             contract_addr.clone(),
             format!(r#"{{"increment": {}}}"#, i),
+            None,
             None,
         );
     }

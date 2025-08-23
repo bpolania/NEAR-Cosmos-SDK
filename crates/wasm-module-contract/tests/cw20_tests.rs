@@ -58,6 +58,7 @@ fn store_cw20_code(contract: &mut WasmModuleContract) -> CodeID {
         Some("cw20-base".to_string()),
         Some("cosmwasm".to_string()),
         None,
+        None,
     );
     response.code_id
 }
@@ -99,6 +100,7 @@ mod instantiation_tests {
             None,
             "test-token".to_string(),
             Some(accounts(1).to_string()),
+            None,
         );
         
         // Contract addresses now use Cosmos format
@@ -139,6 +141,7 @@ mod instantiation_tests {
             None,
             "multi-balance-token".to_string(),
             None,
+            None,
         );
         
         assert!(response.address.starts_with("proxima1"));
@@ -170,6 +173,7 @@ mod mint_tests {
             None,
             "mintable-token".to_string(),
             Some(accounts(1).to_string()),
+            None,
         );
         
         response.address
@@ -191,6 +195,7 @@ mod mint_tests {
         let response = contract.execute(
             token_addr.clone(),
             mint_msg,
+            None,
             None,
         );
         
@@ -222,6 +227,7 @@ mod mint_tests {
             None,
             "capped-token".to_string(),
             Some(accounts(1).to_string()),
+            None,
         );
         
         let token_addr = response.address;
@@ -237,6 +243,7 @@ mod mint_tests {
         let response = contract.execute(
             token_addr.clone(),
             mint_msg,
+            None,
             None,
         );
         
@@ -271,6 +278,7 @@ mod transfer_tests {
             None,
             "transfer-token".to_string(),
             None,
+            None,
         );
         
         response.address
@@ -292,6 +300,7 @@ mod transfer_tests {
         let response = contract.execute(
             token_addr.clone(),
             transfer_msg,
+            None,
             None,
         );
         
@@ -317,6 +326,7 @@ mod transfer_tests {
             token_addr.clone(),
             approve_msg,
             None,
+            None,
         );
         
         // Now transfer from using the allowance
@@ -337,6 +347,7 @@ mod transfer_tests {
         let response = contract.execute(
             token_addr.clone(),
             transfer_from_msg,
+            None,
             None,
         );
         
@@ -360,6 +371,7 @@ mod transfer_tests {
         let response = contract.execute(
             token_addr.clone(),
             send_msg,
+            None,
             None,
         );
         
@@ -394,6 +406,7 @@ mod burn_tests {
             None,
             "burnable-token".to_string(),
             None,
+            None,
         );
         
         response.address
@@ -414,6 +427,7 @@ mod burn_tests {
         let response = contract.execute(
             token_addr.clone(),
             burn_msg,
+            None,
             None,
         );
         
@@ -438,6 +452,7 @@ mod burn_tests {
             token_addr.clone(),
             approve_msg,
             None,
+            None,
         );
         
         // Now burn from using the allowance
@@ -457,6 +472,7 @@ mod burn_tests {
         let response = contract.execute(
             token_addr.clone(),
             burn_from_msg,
+            None,
             None,
         );
         
@@ -491,6 +507,7 @@ mod allowance_tests {
             None,
             "allowance-token".to_string(),
             None,
+            None,
         );
         
         response.address
@@ -512,6 +529,7 @@ mod allowance_tests {
         let response = contract.execute(
             token_addr.clone(),
             increase_msg,
+            None,
             None,
         );
         
@@ -536,6 +554,7 @@ mod allowance_tests {
             token_addr.clone(),
             increase_msg,
             None,
+            None,
         );
         
         // Then decrease it
@@ -550,6 +569,7 @@ mod allowance_tests {
         let response = contract.execute(
             token_addr.clone(),
             decrease_msg,
+            None,
             None,
         );
         
@@ -575,6 +595,7 @@ mod allowance_tests {
         let response = contract.execute(
             token_addr.clone(),
             increase_msg,
+            None,
             None,
         );
         
@@ -621,6 +642,7 @@ mod query_tests {
             None,
             "query-token".to_string(),
             Some(accounts(1).to_string()),
+            None,
         );
         
         response.address
@@ -687,6 +709,7 @@ mod query_tests {
         contract.execute(
             token_addr.clone(),
             approve_msg,
+            None,
             None,
         );
         
@@ -782,6 +805,7 @@ mod edge_case_tests {
             None,
             "edge-token".to_string(),
             None,
+            None,
         );
         
         let token_addr = response.address;
@@ -797,6 +821,7 @@ mod edge_case_tests {
         let response = contract.execute(
             token_addr,
             transfer_msg,
+            None,
             None,
         );
         
@@ -829,6 +854,7 @@ mod edge_case_tests {
             init_msg,
             None,
             "max-supply-token".to_string(),
+            None,
             None,
         );
         
