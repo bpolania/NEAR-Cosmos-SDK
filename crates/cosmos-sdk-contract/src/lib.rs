@@ -276,6 +276,7 @@ impl ModularCosmosRouter {
     }
 
     /// Instantiate a CosmWasm contract via the wasm module
+    #[payable]
     pub fn wasm_instantiate(
         &mut self,
         code_id: u64,
@@ -290,10 +291,12 @@ impl ModularCosmosRouter {
             .expect("Invalid wasm module account ID");
         
         ext_wasm_module::ext(wasm_contract)
+            .with_attached_deposit(env::attached_deposit())
             .instantiate(code_id, msg, funds, label, admin)
     }
 
     /// Execute a CosmWasm contract via the wasm module
+    #[payable]
     pub fn wasm_execute(
         &mut self,
         contract_addr: String,
@@ -306,6 +309,7 @@ impl ModularCosmosRouter {
             .expect("Invalid wasm module account ID");
         
         ext_wasm_module::ext(wasm_contract)
+            .with_attached_deposit(env::attached_deposit())
             .execute(contract_addr, msg, funds)
     }
 
