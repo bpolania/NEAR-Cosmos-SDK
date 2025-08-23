@@ -1,54 +1,94 @@
 # Proxima SDK
 
-[![Version](https://img.shields.io/badge/version-0.9.0--beta-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v0.9.0)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/user/NEAR-Cosmos-SDK/releases/tag/v1.0.0)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
-[![Tests](https://img.shields.io/badge/tests-226%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
+[![Tests](https://img.shields.io/badge/tests-640%2B%20passing-brightgreen.svg)](https://github.com/user/NEAR-Cosmos-SDK)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 *Bridging NEAR and Cosmos ecosystems*
 
-**Version 0.9.0-beta** - Production Ready IBC Infrastructure
+**Version 1.0.0** - Production Ready Modular Architecture with CosmWasm Support
 
-Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC (Inter-Blockchain Communication) infrastructure, including a production-ready relayer for cross-chain communication between NEAR and Cosmos chains.
+Proxima is a complete Cosmos SDK runtime implemented as NEAR smart contracts with full IBC (Inter-Blockchain Communication) infrastructure, CosmWasm compatibility, and a production-ready off-chain relayer for cross-chain communication between NEAR and Cosmos chains.
 
 ## Current Release
 
-**Version 0.9.0-beta** represents a major milestone - the first production-ready beta release with complete IBC infrastructure:
+**Version 1.0.0** represents the first stable release with modular architecture and full CosmWasm support:
 
 | Component | Version | Status | Tests |
 |-----------|---------|--------|--------|
-| **Smart Contract** | 0.9.0-beta | Production Ready | 226+ tests passing |
-| **IBC Relayer** | 0.9.0-beta | Production Ready | 23+ tests passing |
-| **Overall System** | 0.9.0-beta | Production Ready | **226+ total tests** |
-| **Documentation** | 0.9.0-beta | Production Ready | **7 comprehensive guides** |
+| **Router Contract** | 1.0.0 | Deployed to Testnet | 230+ tests passing |
+| **WASM Module** | 1.0.0 | Deployed to Testnet | 60+ tests passing |
+| **IBC Relayer** | 1.0.0 | Production Ready | 350+ tests passing |
+| **Overall System** | 1.0.0 | Production Ready | **640+ total tests** |
+| **Documentation** | 1.0.0 | Production Ready | **Comprehensive guides** |
 
 **Key Achievements:**
-- **Production Infrastructure**: Complete IBC stack deployed on NEAR testnet
+- **Modular Architecture**: Separated router and module contracts for better scalability
+- **CosmWasm Compatibility**: Full support for running CosmWasm contracts on NEAR
+- **CW20 Token Support**: Complete implementation and testing of CW20 token standard
+- **Off-Chain Relayer**: Wasmer-based execution with transaction signing
+- **Cosmos Address System**: Native support for Cosmos-style addresses with 'proxima' prefix
 - **Enterprise Security**: AES-256-GCM encryption with VSA-2022-103 patches
-- **Cross-Chain Ready**: Full NEAR ↔ Cosmos interoperability with local testnet support
-- **Comprehensive Testing**: 226+ tests with 100% success rate across all components
-- **Developer Ready**: Complete documentation, Docker testnet, and deployment automation
-- **Fully Functional Relayer**: Complete packet relay with timeout detection and error recovery
-- **Public API Complete**: Cosmos SDK RPC-compatible interface for transaction broadcasting and management
-- **Complete Documentation**: Enterprise-grade documentation suite with multi-language integration examples
+- **Comprehensive Testing**: 640+ tests with 100% success rate across all components
+- **Live Testnet Deployment**: Both router and WASM module contracts deployed and operational
 
 ## Overview
 
-Proxima recreates essential Cosmos modules with ABCI-compatible transaction processing (without Tendermint consensus), including:
+Proxima implements a modular architecture with separate contracts for routing and module execution:
 
-- **Bank Module**: Fungible token balances with transfer and mint operations
-- **Staking Module**: Delegated tokens, validators, and unbonding periods
-- **Governance Module**: Parameter store and voting mechanism
-- **IBC Light Client**: Inter-Blockchain Communication via Tendermint light client (ICS-07)
-- **IBC Connection Module**: Connection handshake protocol for cross-chain communication (ICS-03)
-- **IBC Channel Module**: Packet-based messaging protocol for reliable cross-chain communication (ICS-04)
-- **IBC Token Transfer**: Cross-chain fungible token transfers using ICS-20 specification
-- **CosmWasm Runtime**: Complete compatibility layer enabling existing Cosmos smart contracts to run on NEAR
-- **CosmWasm x/wasm Module**: Cosmos SDK compatible module for arbitrary contract deployment with comprehensive test coverage
+### Core Components
 
-All persistent state lives in NEAR's key-value store, namespaced by byte-prefixed keys that mirror Cosmos multistore paths.
+**Router Contract** (`cosmos-router.cuteharbor3573.testnet`):
+- Module registration and management
+- Cross-contract call routing
+- Unified interface for all Cosmos SDK modules
+
+**WASM Module** (`wasm-module.cuteharbor3573.testnet`):
+- CosmWasm contract storage and execution
+- CW20 token standard support
+- Cosmos address system with 'proxima' prefix
+- Off-chain execution queue for relayer integration
+
+**IBC Infrastructure**:
+- **IBC Light Client**: Tendermint light client (ICS-07)
+- **IBC Connection Module**: Connection handshake protocol (ICS-03)
+- **IBC Channel Module**: Packet-based messaging (ICS-04)
+- **IBC Token Transfer**: Cross-chain token transfers (ICS-20)
+
+**Off-Chain Relayer**:
+- Wasmer-based CosmWasm execution
+- Transaction signing and broadcasting
+- Execution queue processing
+- Key management with secp256k1 support
+
+All persistent state lives in NEAR's key-value store, namespaced by module with proper isolation.
 
 ## Version History & Changelog
+
+### Version 1.0.0 (2025-08-23) - Stable Release with Modular Architecture
+
+**Major Features:**
+- **Modular Architecture**: Complete separation of router and module contracts for improved scalability and maintainability
+- **Router Contract**: Central hub for module registration and cross-contract routing
+- **WASM Module Contract**: Standalone CosmWasm execution environment with full CW20 support
+- **Off-Chain Relayer**: Wasmer-based execution with transaction signing and queue processing
+- **Cosmos Address System**: Full implementation of Cosmos-style addresses with 'proxima' prefix
+- **Permission System**: Original caller tracking for proper authorization through router
+- **CW20 Token Deployment**: Successfully deployed and tested CW20 tokens on testnet
+
+**Technical Improvements:**
+- Fixed all test failures across the entire codebase (640+ tests passing)
+- Added JsonSchema support for ABI generation
+- Improved cross-contract call interfaces
+- Enhanced error handling and type safety
+- Removed obsolete scripts and test files
+- Updated Docker configuration for wasmd testnet
+
+**Deployments:**
+- **Router Contract**: `cosmos-router.cuteharbor3573.testnet`
+- **WASM Module**: `wasm-module.cuteharbor3573.testnet`
+- Both contracts fully operational on NEAR testnet
 
 ### Version 0.9.0-beta (2025-08-05) - CosmWasm Compatibility Release
 
@@ -140,33 +180,30 @@ All persistent state lives in NEAR's key-value store, namespaced by byte-prefixe
 ## Architecture
 
 ```
-Proxima/                  # Complete IBC Infrastructure Monorepo
+Proxima/                           # Modular Cosmos SDK on NEAR
 ├── crates/
-│   ├── cosmos-sdk-contract/  # NEAR Smart Contract Implementation
+│   ├── cosmos-sdk-contract/      # Router Contract
 │   │   ├── src/
-│   │   │   ├── lib.rs             # Main contract entry point
-│   │   │   └── modules/           # Cosmos SDK Modules
-│   │   │       ├── bank/          # Token operations (transfer, mint)
-│   │   │       ├── staking/       # Delegation and validator management
-│   │   │       ├── gov/           # Governance proposals and voting
-│   │   │       └── ibc/           # Inter-Blockchain Communication
-│   │   │           ├── client/    # Light client manager (ICS-07)
-│   │   │           ├── connection/# ICS-03 Connection handshake
-│   │   │           ├── channel/   # ICS-04 Channel & packet handling
-│   │   │           ├── multistore/# Multi-store proof verification
-│   │   │           └── transfer/  # ICS-20 Token transfer application
-│   │   ├── tests/                 # Comprehensive test suite (60+ tests)
-│   │   └── target/near/           # Compiled WASM artifacts
-│   └── ibc-relayer/              # Production IBC Relayer
+│   │   │   ├── lib.rs            # Router entry point
+│   │   │   └── modules/          # Module interfaces
+│   │   ├── tests/                # Router tests (230+ tests)
+│   │   └── target/near/          # Compiled WASM
+│   ├── wasm-module-contract/     # WASM Module Contract
+│   │   ├── src/
+│   │   │   ├── lib.rs            # WASM module entry
+│   │   │   ├── execution_queue.rs# Off-chain execution
+│   │   │   └── address.rs        # Cosmos addresses
+│   │   ├── tests/                # Module tests (60+ tests)
+│   │   └── target/near/          # Compiled WASM
+│   └── ibc-relayer/              # Off-Chain Relayer
 │       ├── src/
 │       │   ├── main.rs           # CLI interface
-│       │   ├── chains/           # Chain integrations (NEAR + Cosmos)
-│       │   ├── relay/            # Core relay engine and proof generation
-│       │   ├── config/           # TOML configuration system
-│       │   └── metrics/          # Prometheus monitoring
-│       ├── tests/                # Relayer test suite (168 tests)
-│       ├── config/               # Configuration files
-│       └── examples/             # Usage examples
+│       │   ├── cosmwasm/         # Wasmer execution
+│       │   ├── chains/           # NEAR + Cosmos
+│       │   ├── relay/            # Core relay engine
+│       │   └── keystore/         # Key management
+│       ├── tests/                # Relayer tests (350+ tests)
+│       └── docker/               # Local testnet setup
 ├── Cargo.toml                    # Workspace configuration
 └── README.md                     # This documentation
 ```
@@ -179,16 +216,22 @@ Proxima/                  # Complete IBC Infrastructure Monorepo
 
 ## Building
 
-### Smart Contract
+### Router Contract
 ```bash
-# Set Rust version to 1.86.0 for NEAR compatibility
-rustup override set 1.86.0
-
-# Build the contract
+# Build the router contract
 cd crates/cosmos-sdk-contract
 cargo near build
 
-# Output will be in target/near/cosmos_sdk_near.wasm
+# Output: target/near/cosmos_sdk_contract.wasm
+```
+
+### WASM Module Contract
+```bash
+# Build the WASM module
+cd crates/wasm-module-contract
+cargo near build
+
+# Output: target/near/wasm_module_contract.wasm
 ```
 
 ### IBC Relayer
@@ -200,52 +243,90 @@ cargo build --release
 # Run tests
 cargo test
 
-# Start relayer
+# Start relayer with Wasmer execution
 cargo run -- start
 ```
 
 ## Deployment
 
-### Smart Contract Deployment
+### Contract Deployment
+
+#### Deploy Router Contract
 ```bash
-# Build the contract
 cd crates/cosmos-sdk-contract
 cargo near build
-
-# Deploy to NEAR testnet
-near deploy --accountId your-account.testnet --wasmFile target/near/cosmos_sdk_near.wasm
-
-# Initialize contract
-near call your-account.testnet new '{}' --accountId your-account.testnet
+near deploy --accountId cosmos-router.testnet --wasmFile target/near/cosmos_sdk_contract.wasm
 ```
 
-### Relayer Deployment
+#### Deploy WASM Module
 ```bash
-# Configure chains in config/relayer.toml
-cd crates/ibc-relayer
+cd crates/wasm-module-contract
+cargo near build
+near deploy --accountId wasm-module.testnet --wasmFile target/near/wasm_module_contract.wasm
 
-# Use automated deployment scripts for IBC infrastructure
-scripts/create_simple_ibc_client.sh     # Creates IBC client
-scripts/create_ibc_connection.sh        # Establishes connection
-scripts/create_ibc_channel.sh           # Sets up transfer channel
+# Initialize with router
+near call wasm-module.testnet new '{"owner": "admin.testnet", "router": "cosmos-router.testnet"}' --accountId admin.testnet
+```
 
-# Or use relayer commands
-cargo run -- create-connection near-testnet cosmoshub-testnet
-cargo run -- create-channel connection-0 transfer
+#### Register Module with Router
+```bash
+near call cosmos-router.testnet register_module '{"module_type": "wasm", "contract_id": "wasm-module.testnet", "version": "1.0.0"}' --accountId admin.testnet
+```
 
-# Start packet relaying
-cargo run -- start
+### Deploy CW20 Token
+```bash
+# Store CW20 contract code
+near call wasm-module.testnet store_code '{"wasm_byte_code": "<base64_encoded_cw20_wasm>"}' --accountId admin.testnet
+
+# Instantiate CW20 token
+near call wasm-module.testnet instantiate '{
+  "code_id": 1,
+  "msg": "{\"name\":\"Test Token\",\"symbol\":\"TEST\",\"decimals\":6,\"initial_balances\":[]}",
+  "label": "test-token",
+  "admin": "admin.testnet"
+}' --accountId admin.testnet
 ```
 
 ### Live Testnet Infrastructure
-The project includes complete IBC infrastructure deployed on NEAR testnet:
-- **Contract**: `cosmos-sdk-demo.testnet`
-- **IBC Client**: `07-tendermint-0` (Tendermint light client)
-- **IBC Connection**: `connection-0` (INIT state, ready for handshake completion)
-- **IBC Channel**: `channel-0` (transfer port, ICS-20 token transfers)
-- **Account**: `cuteharbor3573.testnet` (signer and operator)
+The project has deployed infrastructure on NEAR testnet:
+- **Router Contract**: `cosmos-router.cuteharbor3573.testnet`
+- **WASM Module**: `wasm-module.cuteharbor3573.testnet`
+- **CW20 Tokens**: Successfully deployed and tested
+- **Account**: `cuteharbor3573.testnet` (deployment account)
 
 **Note**: This project uses the official NEAR SDK for Rust with cargo-near for reliable WASM compilation and deployment.
+
+## Testing
+
+Run all tests across the workspace:
+```bash
+# Run all 640+ tests
+cargo test --workspace
+
+# Test specific components
+cd crates/cosmos-sdk-contract && cargo test    # Router tests (230+)
+cd crates/wasm-module-contract && cargo test   # WASM module tests (60+)
+cd crates/ibc-relayer && cargo test           # Relayer tests (350+)
+```
+
+## Key Features
+
+### Modular Architecture
+- **Router Pattern**: Central contract routes calls to specialized modules
+- **Module Isolation**: Each module operates independently with its own storage
+- **Cross-Contract Calls**: Efficient promise-based communication between contracts
+- **Permission System**: Original caller tracking for proper authorization
+
+### CosmWasm Compatibility
+- **Full API Support**: Complete CosmWasm standard library implementation
+- **CW20 Tokens**: Successfully deployed and tested CW20 token contracts
+- **Wasmer Execution**: Off-chain execution with transaction signing
+- **Storage Compatibility**: Range queries and prefix iterations
+
+### Cosmos Address System
+- **Native Format**: 'proxima1' prefix for all addresses
+- **Conversion**: Automatic conversion between NEAR and Cosmos addresses
+- **Compatibility**: Works with existing Cosmos tooling
 
 ## Module Details
 
