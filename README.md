@@ -959,7 +959,7 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 
 ## Future Roadmap & Enhancements
 
-### 🔐 **Security & Decentralization**
+### **Security & Decentralization**
 - **Multi-Relayer Consensus**: M-of-N agreement on execution results
 - **Zero-Knowledge Proofs**: Trustless execution verification
 - **Optimistic Rollups**: Challenge period with fraud proofs
@@ -971,7 +971,7 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 - **State Compression**: Merkle tree commitments and IPFS integration
 - **Execution Caching**: Reuse common execution patterns
 
-### 🌉 **Cross-Chain Features**
+### **Cross-Chain Features**
 - **NEAR ↔ Cosmos Bridge**: Native asset bridging with wrapped tokens
 - **EVM Compatibility**: Execute Ethereum contracts via CosmWasm
 - **Multi-Chain Router**: Optimal chain routing for transactions
@@ -989,7 +989,7 @@ User → NEAR Contract → Execution Queue → Relayer → Wasmer Execution → 
 - **Contract Templates**: Ready-to-deploy DeFi primitives
 - **Migration Tools**: Automated Ethereum/Cosmos contract migration
 
-### 💰 **Economic Model**
+### **Economic Model**
 - **Relayer Incentives**: Fee market and performance rewards
 - **Governance Token**: Protocol governance and fee distribution
 - **MEV Protection**: Fair ordering and front-running prevention
@@ -1032,7 +1032,7 @@ Proxima has evolved into a **comprehensive Cosmos SDK implementation on NEAR** w
 - Test IBC token transfers
 - Integrate with existing NEAR dApps
 
-🔮 **Future Vision**:
+**Future Vision**:
 Transform into a production-ready, decentralized cross-chain infrastructure serving as the foundation for interoperable applications between NEAR, Cosmos, and eventually EVM ecosystems.
 
 The hybrid architecture provides a pragmatic solution bringing Cosmos smart contracts to NEAR today, while research continues on native WASM-in-WASM execution for the future.
